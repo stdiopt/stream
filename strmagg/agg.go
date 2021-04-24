@@ -2,6 +2,7 @@
 package strmagg
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/stdiopt/stream"
@@ -14,10 +15,10 @@ type AggEl struct {
 }
 
 type Group struct {
-	Field string
-	Value interface{}
-	Count int
-	Aggs  []*AggEl
+	Field string      `json:"field"`
+	Value interface{} `json:"value"`
+	Count int         `json:"count"`
+	Aggs  []*AggEl    `json:"aggs,omitempty"`
 }
 
 type aggOptField struct {
@@ -41,12 +42,13 @@ func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
 	}
 
 	return func(p stream.Proc) error {
+		ctx := p.Context()
 		groupRef := map[interface{}]*Group{}
 		group := []*Group{}
 
-		err := p.Consume(func(v interface{}) error {
+		err := p.Consume(func(ctx context.Context, v interface{}) error {
 			if v == streamu.End {
-				return p.Send(group)
+				return p.Send(ctx, group)
 			}
 			key := o.groupBy(v)
 
@@ -82,7 +84,7 @@ func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
 		if err != nil {
 			return err
 		}
-		return p.Send(group)
+		return p.Send(ctx, group)
 	}
 }
 
@@ -111,7 +113,7 @@ func makeReduceFunc(fn interface{}) func(a, v interface{}) interface{} {
 		panic("requires 1 return")
 	}
 	if typ.In(0) != typ.Out(0) {
-		panic("return should be equal to first argument")
+		panic("return type should be equal to first argument")
 	}
 	return func(a, v interface{}) interface{} {
 		argA := reflect.ValueOf(a)

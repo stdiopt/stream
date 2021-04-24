@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/stdiopt/stream"
@@ -8,23 +9,29 @@ import (
 
 func main() {
 	l := stream.Line(
-		func(p stream.Proc) error {
-			for i := 0; i < 10; i++ {
-				if err := p.Send(i); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-		func(p stream.Proc) error {
-			return p.Consume(func(v interface{}) error {
-				fmt.Println("Consuming:", v)
-				return nil
-			})
-		},
+		producer(10),
+		consumer,
 	)
 
 	if err := stream.Run(l); err != nil {
 		fmt.Println("err:", err)
 	}
+}
+
+func producer(n int) stream.ProcFunc {
+	return func(p stream.Proc) error {
+		for i := 0; i < 10; i++ {
+			if err := p.Send(p.Context(), i); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func consumer(p stream.Proc) error {
+	return p.Consume(func(_ context.Context, v interface{}) error {
+		fmt.Println("Consuming:", v)
+		return nil
+	})
 }

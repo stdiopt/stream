@@ -3,11 +3,11 @@
 An experiment around building composable, streamable pipelines in go
 
 the idea it self is not about maximum performance but rather an simplier way to
-abstract channels, workers, context cancellation and dynamic data mostly for
+abstract channels, concurrency, cancellation and dynamic data mostly for
 ETL jobs. It relies heavily on `interface{}` to pass data around and has some
 heavy reflection usage on `github.com/stdiopt/stream/strmutil`.
 
-it's be possible to build procs around serializing CSVs, selecting DB, producing
+it's be possible to build procs around serializing CSVs, querying RDBs, producing
 Parquet, crawling url's, consuming API's, etc...
 
 ## ProcFunc
@@ -21,16 +21,15 @@ early closes the internal channel and will stop further processors
 - Consume or Send will be cancelled if context is done
 
 ```go
-type ProcFunc = func(p stream.Proc) error
+type ProcFunc = func(ctx context.Context, p stream.Proc) error
 ```
 
 the Proc interface:
 
 ```go
 type Proc interface {
-	Context() context.Context
-	Consume(func(interface{}) error) error
-	Send(interface{}) error
+	Consume(func(context.Context, interface{}) error) error
+	Send(context.Context, interface{}) error
 }
 ```
 
@@ -50,9 +49,9 @@ func(p stream.Proc) error {
 	// until we don't have more to consume if the underlying context is
 	// cancelled due to a previous error or timeout the Consume will cease and
 	// return
-	return p.Consume(func(v interface{}) error {
+	return p.Consume(func(ctx context.Context, v interface{}) error {
 		// do something with consumed value
-		return p.Send(transformed)
+		return p.Send(ctx, transformed)
 	})
 }
 ```
@@ -79,14 +78,14 @@ func main() {
 }
 func produce(p stream.Proc) error {
 	for i := 0; i < 10; i++ {
-		if err := p.Send(i); err != nil {
+		if err := p.Send(p.Context(), i); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 func consume(p stream.Proc) error {
-	return p.Consume(func(v interface{}) error {
+	return p.Consume(func(_ context.Context, v interface{}) error {
 		fmt.Println("Consuming:", v)
 		return nil
 	})

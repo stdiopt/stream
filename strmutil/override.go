@@ -1,11 +1,15 @@
 package strmutil
 
-import "github.com/stdiopt/stream"
+import (
+	"context"
+
+	"github.com/stdiopt/stream"
+)
 
 type ProcOverride struct {
 	Proc
 	ConsumerFunc func(stream.ConsumerFunc) error
-	SenderFunc   func(interface{}) error
+	SenderFunc   func(context.Context, interface{}) error
 }
 
 func (w ProcOverride) Consume(fn stream.ConsumerFunc) error {
@@ -15,9 +19,9 @@ func (w ProcOverride) Consume(fn stream.ConsumerFunc) error {
 	return w.Proc.Consume(fn)
 }
 
-func (w ProcOverride) Send(v interface{}) error {
+func (w ProcOverride) Send(ctx context.Context, v interface{}) error {
 	if w.SenderFunc != nil {
-		return w.SenderFunc(v)
+		return w.SenderFunc(ctx, v)
 	}
-	return w.Proc.Send(v)
+	return w.Proc.Send(ctx, v)
 }

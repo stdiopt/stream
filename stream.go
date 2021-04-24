@@ -8,14 +8,14 @@ import (
 )
 
 // ConsumerFunc function type to receive messages.
-type ConsumerFunc = func(v interface{}) error
+type ConsumerFunc = func(context.Context, interface{}) error
 
 type Consumer interface {
 	Consume(ConsumerFunc) error
 }
 
 type Sender interface {
-	Send(v interface{}) error
+	Send(ctx context.Context, v interface{}) error
 }
 
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
@@ -24,36 +24,6 @@ type Proc interface {
 	Consumer
 	Sender
 	Context() context.Context
-}
-
-// proc implements the Proc interface
-type proc struct {
-	ctx context.Context
-	Consumer
-	Sender
-}
-
-// MakeProc makes a Proc based on a Consumer and Sender.
-func MakeProc(ctx context.Context, c Consumer, s Sender) Proc {
-	return proc{ctx, c, s}
-}
-
-func (p proc) Consume(fn func(v interface{}) error) error {
-	if p.Consumer == nil {
-		return nil
-	}
-	return p.Consumer.Consume(fn)
-}
-
-func (p proc) Send(v interface{}) error {
-	if p.Sender == nil {
-		return nil
-	}
-	return p.Sender.Send(v)
-}
-
-func (p proc) Context() context.Context {
-	return p.ctx
 }
 
 type ProcFunc = func(Proc) error
@@ -68,28 +38,26 @@ func Line(pfns ...ProcFunc) ProcFunc {
 	}
 	return func(p Proc) error {
 		ctx := p.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
 		eg, ctx := errgroup.WithContext(ctx)
+		// eg := errgroup.Group{}
 		last := p // consumer should be nil
 		for i, fn := range pfns {
 			l, fn := last, fn // shadow
 			if i == len(pfns)-1 {
 				// Last one will consume last to P
 				eg.Go(func() error {
-					return fn(proc{ctx, l, p})
+					return fn(MakeProc(ctx, l, p))
 				})
 				break
 			}
 			ch := NewChan(ctx, 0)
 			// Consuming from last and sending to channel
-			np := proc{ctx, l, ch}
+			np := MakeProc(ctx, l, ch) // <- problem here, should the context be child?
 			eg.Go(func() error {
 				defer ch.Close()
 				return fn(np)
 			})
-			last = proc{ctx, ch, nil} // don't need a sender here
+			last = MakeProc(ctx, ch, nil) // don't need a sender here
 		}
 		return eg.Wait()
 	}
@@ -104,7 +72,7 @@ func Broadcast(pfns ...ProcFunc) ProcFunc {
 			ch := NewChan(ctx, 0)
 			fn := fn
 			eg.Go(func() error {
-				return fn(proc{ctx, ch, p})
+				return fn(MakeProc(ctx, ch, p))
 			})
 			chs[i] = ch
 		}
@@ -114,9 +82,9 @@ func Broadcast(pfns ...ProcFunc) ProcFunc {
 					ch.Close()
 				}
 			}()
-			return p.Consume(func(v interface{}) error {
+			return p.Consume(func(ctx context.Context, v interface{}) error {
 				for _, ch := range chs {
-					if err := ch.Send(v); err != nil {
+					if err := ch.Send(ctx, v); err != nil {
 						return err
 					}
 				}
@@ -134,10 +102,11 @@ func Workers(n int, pfns ...ProcFunc) ProcFunc {
 		n = 1
 	}
 	return func(p Proc) error {
-		eg, ctx := errgroup.WithContext(p.Context())
+		ctx := p.Context()
+		eg := errgroup.Group{}
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
-				return pfn(proc{ctx, p, p})
+				return pfn(MakeProc(ctx, p, p))
 			})
 		}
 		return eg.Wait()
@@ -149,14 +118,13 @@ func Buffer(n int, pfns ...ProcFunc) ProcFunc {
 	pfn := Line(pfns...)
 	return func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
-
 		ch := NewChan(ctx, n)
 		eg.Go(func() error {
 			defer ch.Close()
 			return p.Consume(ch.Send)
 		})
 		eg.Go(func() error {
-			return pfn(proc{ctx, ch, p})
+			return pfn(MakeProc(ctx, ch, p))
 		})
 		return eg.Wait()
 	}
@@ -170,5 +138,5 @@ func Run(pfns ...ProcFunc) error {
 // RunWithContext runs the stream with a context.
 func RunWithContext(ctx context.Context, pfns ...ProcFunc) error {
 	pfn := Line(pfns...)
-	return pfn(proc{ctx, nil, nil})
+	return pfn(MakeProc(ctx, nil, nil))
 }

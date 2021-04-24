@@ -1,6 +1,7 @@
 package strmutil
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -12,12 +13,12 @@ import (
 // on a slice it's possible to have Field1.0.Field2
 func Field(f string) ProcFunc {
 	return func(p Proc) error {
-		return p.Consume(func(v interface{}) error {
+		return p.Consume(func(ctx context.Context, v interface{}) error {
 			val, err := FieldOf(v, f)
 			if err != nil {
 				return err
 			}
-			return p.Send(val)
+			return p.Send(ctx, val)
 		})
 	}
 }
@@ -29,7 +30,7 @@ type (
 func FieldMap(target interface{}, fm FMap) ProcFunc {
 	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
 	return func(p Proc) error {
-		return p.Consume(func(v interface{}) error {
+		return p.Consume(func(ctx context.Context, v interface{}) error {
 			sv := reflect.New(typ)
 			vv := sv.Elem()
 			for k, f := range fm {
@@ -57,7 +58,7 @@ func FieldMap(target interface{}, fm FMap) ProcFunc {
 				}
 				field.Set(reflect.ValueOf(fmt.Sprint(val)))
 			}
-			return p.Send(vv.Interface())
+			return p.Send(ctx, vv.Interface())
 		})
 	}
 }

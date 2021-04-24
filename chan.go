@@ -4,27 +4,33 @@ import (
 	"context"
 )
 
+// message is an internal message type that also passes ctx
+type message struct {
+	ctx   context.Context
+	value interface{}
+}
+
 // Chan wraps a channel and a context for cancellation awareness.
 type Chan struct {
 	ctx context.Context
-	ch  chan interface{}
+	ch  chan message
 }
 
 // NewChan returns a Chan based on context with specific buffer size.
 func NewChan(ctx context.Context, buffer int) Chan {
 	return Chan{
 		ctx: ctx,
-		ch:  make(chan interface{}, buffer),
+		ch:  make(chan message, buffer),
 	}
 }
 
 // Send sends v to the underlying channel if context is cancelled it will return
 // the underlying ctx.Err()
-func (c Chan) Send(v interface{}) error {
+func (c Chan) Send(ctx context.Context, v interface{}) error {
 	select {
-	case <-c.ctx.Done():
-		return c.ctx.Err()
-	case c.ch <- v:
+	case <-ctx.Done():
+		return ctx.Err()
+	case c.ch <- message{ctx, v}:
 		return nil
 	}
 }
@@ -42,14 +48,13 @@ func (c Chan) Consume(fn ConsumerFunc) error {
 			if !ok {
 				return nil
 			}
-			if err := fn(v); err != nil {
+			if err := fn(v.ctx, v.value); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-// Close closes the underlying channel
 func (c Chan) Close() {
 	close(c.ch)
 }

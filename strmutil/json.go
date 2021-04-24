@@ -1,6 +1,7 @@
 package strmutil
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +25,9 @@ func JSONParse(v interface{}) ProcFunc {
 		v = &l
 	}
 	typ := reflect.Indirect(reflect.ValueOf(v)).Type()
+	// TODO: {lpf} this breaks message context
 	return func(p Proc) error {
+		ctx := p.Context()
 		rd := AsReader(p)
 		dec := json.NewDecoder(rd)
 		for {
@@ -40,7 +43,7 @@ func JSONParse(v interface{}) ProcFunc {
 			if vv, ok := v.(*interface{}); ok {
 				v = *vv
 			}
-			if err := p.Send(v); err != nil {
+			if err := p.Send(ctx, v); err != nil {
 				return rd.CloseWithError(err)
 			}
 		}
@@ -53,13 +56,13 @@ func JSONDump(w io.Writer) ProcFunc {
 	return func(p Proc) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		return p.Consume(func(v interface{}) error {
+		return p.Consume(func(ctx context.Context, v interface{}) error {
 			if err := enc.Encode(v); err != nil {
 				log.Println("err:", err)
 				return err
 			}
 			fmt.Fprintln(w)
-			return p.Send(v)
+			return p.Send(ctx, v)
 		})
 	}
 }

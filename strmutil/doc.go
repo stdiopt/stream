@@ -1,2 +1,2 @@
-// Package strmutil provides stream utils
+// Package strmutil provides some default transforms
 package strmutil

@@ -23,7 +23,7 @@ func TestConsume(t *testing.T) {
 			name: "consume with no error",
 			ctx:  context.Background(),
 			fn: func(c stream.Chan, out *[]interface{}) stream.ConsumerFunc {
-				return func(v interface{}) error {
+				return func(_ context.Context, v interface{}) error {
 					*out = append(*out, v)
 					return nil
 				}
@@ -35,7 +35,7 @@ func TestConsume(t *testing.T) {
 			name: "consume should return testError",
 			ctx:  context.Background(),
 			fn: func(c stream.Chan, out *[]interface{}) stream.ConsumerFunc {
-				return func(v interface{}) error {
+				return func(_ context.Context, v interface{}) error {
 					*out = append(*out, v)
 					return testError
 				}
@@ -51,7 +51,7 @@ func TestConsume(t *testing.T) {
 				return ctx
 			}(),
 			fn: func(c stream.Chan, out *[]interface{}) stream.ConsumerFunc {
-				return func(v interface{}) error {
+				return func(_ context.Context, v interface{}) error {
 					*out = append(*out, v)
 					return nil
 				}
@@ -67,7 +67,7 @@ func TestConsume(t *testing.T) {
 			go func() {
 				defer ch.Close()
 				for i := 0; i < 4; i++ {
-					ch.Send(i) // nolint: errcheck
+					ch.Send(tt.ctx, i) // nolint: errcheck
 				}
 			}()
 
@@ -140,14 +140,14 @@ func TestSend(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ch.Consume(func(v interface{}) error { // nolint: errcheck
+				ch.Consume(func(_ context.Context, v interface{}) error { // nolint: errcheck
 					consumed = append(consumed, v)
 					return tt.consumerErr
 				})
 			}()
 
 			for _, s := range tt.values {
-				err := ch.Send(s)
+				err := ch.Send(tt.ctx, s)
 				if want := tt.wantErr; err != want {
 					t.Errorf("\nwant: %v\n got: %v\n", want, err)
 					break
