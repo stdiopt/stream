@@ -16,7 +16,7 @@ import (
 
 func main() {
 	l := stream.Line(
-		strmutil.Value("https://randomuser.me/api/?results=1"),           // just sends the string
+		strmutil.Value("https://randomuser.me/api/?results=100"),         // just sends the string
 		strmutil.HTTPGet(http.Header{"Authorization": []string{"...}"}}), // fetches the url passed by the input
 		strmutil.JSONParse(nil),      // Parses json if param is nil it will parse into an &interface{}
 		strmutil.Field("results"),    // from the map response, we send the contents of the field results

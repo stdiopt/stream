@@ -10,11 +10,16 @@ import (
 func HTTPGet(hdr http.Header) ProcFunc {
 	return func(p Proc) error {
 		return p.Consume(func(v interface{}) error {
-			s, ok := v.(string)
+			url, ok := v.(string)
 			if !ok {
 				return errors.New("needs a string")
 			}
-			res, err := http.Get(s)
+			req, err := http.NewRequestWithContext(p.Context(), "GET", url, nil)
+			if err != nil {
+				return err
+			}
+
+			res, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return err
 			}
