@@ -1,6 +1,6 @@
 # stream
 
-An experiment around building streamable pipelines in go
+An experiment around building composable, streamable pipelines in go
 
 the idea it self is not about maximum performance but rather an simplier way to
 abstract channels, workers, context cancellation and dynamic data mostly for
@@ -90,6 +90,27 @@ func consume(p stream.Proc) error {
 		fmt.Println("Consuming:", v)
 		return nil
 	})
+}
+```
+
+Consuming API Example [here](./examples/workers_utils)
+
+```go
+func main() {
+	err := stream.Run(
+		strmutil.Value("https://randomuser.me/api/?results=100"), // just sends the string
+		strmutil.HTTPGet(nil),
+		strmutil.JSONParse(nil),
+		strmutil.Field("results"),
+		strmutil.Unslice(),
+		strmutil.Field("picture.thumbnail"),
+		// Download profile pictures thumbnails concurrently
+		stream.Workers(32, HTTPDownload(nil)),
+		strmutil.JSONDump(os.Stdout),
+	)
+	if err != nil {
+		log.Println("err:", err)
+	}
 }
 ```
 

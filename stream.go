@@ -59,12 +59,12 @@ func (p proc) Context() context.Context {
 type ProcFunc = func(Proc) error
 
 // Line will consume and pass a message sequentually on all ProcFuncs.
-func Line(pfs ...ProcFunc) ProcFunc {
-	if len(pfs) == 0 {
+func Line(pfns ...ProcFunc) ProcFunc {
+	if len(pfns) == 0 {
 		panic("no funcs")
 	}
-	if len(pfs) == 1 {
-		return pfs[0]
+	if len(pfns) == 1 {
+		return pfns[0]
 	}
 	return func(p Proc) error {
 		ctx := p.Context()
@@ -73,9 +73,9 @@ func Line(pfs ...ProcFunc) ProcFunc {
 		}
 		eg, ctx := errgroup.WithContext(ctx)
 		last := p // consumer should be nil
-		for i, fn := range pfs {
+		for i, fn := range pfns {
 			l, fn := last, fn // shadow
-			if i == len(pfs)-1 {
+			if i == len(pfns)-1 {
 				// Last one will consume last to P
 				eg.Go(func() error {
 					return fn(proc{ctx, l, p})
@@ -96,11 +96,11 @@ func Line(pfs ...ProcFunc) ProcFunc {
 }
 
 // Broadcast consumes and passes the consumed message to all pfs ProcFuncs.
-func Broadcast(pfs ...ProcFunc) ProcFunc {
+func Broadcast(pfns ...ProcFunc) ProcFunc {
 	return func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
-		chs := make([]Chan, len(pfs))
-		for i, fn := range pfs {
+		chs := make([]Chan, len(pfns))
+		for i, fn := range pfns {
 			ch := NewChan(ctx, 0)
 			fn := fn
 			eg.Go(func() error {
@@ -128,7 +128,8 @@ func Broadcast(pfs ...ProcFunc) ProcFunc {
 }
 
 // Workers will start N ProcFuncs consuming and sending on same channels.
-func Workers(n int, pfn ProcFunc) ProcFunc {
+func Workers(n int, pfns ...ProcFunc) ProcFunc {
+	pfn := Line(pfns...)
 	if n <= 0 {
 		n = 1
 	}
@@ -144,7 +145,8 @@ func Workers(n int, pfn ProcFunc) ProcFunc {
 }
 
 // Buffer will create an extra buffered channel.
-func Buffer(n int, pfn ProcFunc) ProcFunc {
+func Buffer(n int, pfns ...ProcFunc) ProcFunc {
+	pfn := Line(pfns...)
 	return func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 
@@ -161,11 +163,12 @@ func Buffer(n int, pfn ProcFunc) ProcFunc {
 }
 
 // Run will run the stream.
-func Run(pf ProcFunc) error {
-	return RunWithContext(context.Background(), pf)
+func Run(pfns ...ProcFunc) error {
+	return RunWithContext(context.Background(), pfns...)
 }
 
 // RunWithContext runs the stream with a context.
-func RunWithContext(ctx context.Context, pf ProcFunc) error {
-	return pf(proc{ctx, nil, nil})
+func RunWithContext(ctx context.Context, pfns ...ProcFunc) error {
+	pfn := Line(pfns...)
+	return pfn(proc{ctx, nil, nil})
 }

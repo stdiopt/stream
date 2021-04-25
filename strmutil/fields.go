@@ -62,6 +62,10 @@ func FieldMap(target interface{}, fm FMap) ProcFunc {
 	}
 }
 
+// FieldOf returns a field of the value v by walking through the separators
+// - on a struct it will walk through the struct Fields
+// - on a map[string]interface{} it will walk through map
+// - on a slice it's possible to have Field1.0.Field2
 func FieldOf(v interface{}, p string) (interface{}, error) {
 	if p == "." {
 		return v, nil
