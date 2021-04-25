@@ -27,7 +27,7 @@ func main() {
 		strmagg.Aggregate(
 			// manually processes the above message and returns the month of birth as the key for the group
 			strmagg.GroupBy("birth months", func(v interface{}) interface{} {
-				dob, err := strmutil.FieldOf("dob.date", v)
+				dob, err := strmutil.FieldOf(v, "dob.date")
 				if err != nil {
 					return ""
 				}

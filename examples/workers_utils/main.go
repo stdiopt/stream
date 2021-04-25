@@ -24,7 +24,7 @@ func main() {
 			strmutil.Field("results"),
 			strmutil.Unslice(),
 			strmutil.Field("picture.thumbnail"),
-			// Download profile pictures in parallel
+			// Download profile pictures concurrently
 			stream.Workers(32, HTTPDownload(nil)),
 			strmutil.JSONDump(os.Stdout),
 		),

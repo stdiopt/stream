@@ -13,7 +13,7 @@ import (
 func Field(f string) ProcFunc {
 	return func(p Proc) error {
 		return p.Consume(func(v interface{}) error {
-			val, err := FieldOf(f, v)
+			val, err := FieldOf(v, f)
 			if err != nil {
 				return err
 			}
@@ -51,7 +51,7 @@ func FieldMap(target interface{}, fm FMap) ProcFunc {
 				field.Set(reflect.ValueOf(buf.String()))
 				*/
 
-				val, err := FieldOf(f, v)
+				val, err := FieldOf(v, f)
 				if err != nil {
 					return err
 				}
@@ -62,7 +62,7 @@ func FieldMap(target interface{}, fm FMap) ProcFunc {
 	}
 }
 
-func FieldOf(p string, v interface{}) (interface{}, error) {
+func FieldOf(v interface{}, p string) (interface{}, error) {
 	if p == "." {
 		return v, nil
 	}

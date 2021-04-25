@@ -137,6 +137,7 @@ func TestSend(t *testing.T) {
 			wg := sync.WaitGroup{}
 
 			ch := stream.NewChan(tt.ctx, 0)
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				ch.Consume(func(v interface{}) error { // nolint: errcheck

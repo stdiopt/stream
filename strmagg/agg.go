@@ -70,7 +70,7 @@ func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := streamu.FieldOf(a.Field, v)
+				fi, err := streamu.FieldOf(v, a.Field)
 				if err != nil {
 					continue
 				}
