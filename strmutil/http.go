@@ -14,7 +14,7 @@ func HTTPGet(hdr http.Header) ProcFunc {
 			if !ok {
 				return errors.New("needs a string")
 			}
-			req, err := http.NewRequestWithContext(p.Context(), "GET", url, nil)
+			req, err := http.NewRequestWithContext(p.Context(), http.MethodGet, url, nil)
 			if err != nil {
 				return err
 			}
