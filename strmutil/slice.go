@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"github.com/stdiopt/stream"
 )
 
 // Unslice consumes slices and sends each slice element.
-func Unslice() ProcFunc {
-	return func(p Proc) error {
+func Unslice() stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(ctx context.Context, v interface{}) error {
 			val := reflect.Indirect(reflect.ValueOf(v))
 			if val.Type().Kind() != reflect.Slice {
@@ -22,13 +24,13 @@ func Unslice() ProcFunc {
 			}
 			return nil
 		})
-	}
+	})
 }
 
 // Slice consumes elements and creates a slice if either downstream is done or
 // it reaches 'max' elements
-func Slice(max int) ProcFunc {
-	return func(p Proc) error {
+func Slice(max int) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		slices := map[reflect.Type]reflect.Value{}
 		err := p.Consume(func(ctx context.Context, v interface{}) error {
 			typ := reflect.TypeOf(v)
@@ -55,5 +57,5 @@ func Slice(max int) ProcFunc {
 			}
 		}
 		return nil
-	}
+	})
 }

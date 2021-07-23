@@ -1,7 +1,9 @@
 package strmutil
 
-func Seq(start, end, step int) ProcFunc {
-	return func(p Proc) error {
+import "github.com/stdiopt/stream"
+
+func Seq(start, end, step int) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		ctx := p.Context()
 		if start > end {
 			for i := start; i >= end; i += step {
@@ -17,5 +19,5 @@ func Seq(start, end, step int) ProcFunc {
 			}
 		}
 		return nil
-	}
+	})
 }

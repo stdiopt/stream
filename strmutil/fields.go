@@ -6,30 +6,47 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/stdiopt/stream"
 )
+
+func FieldToMeta(k, f string) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
+		return p.Consume(func(ctx context.Context, v interface{}) error {
+			val, err := FieldOfContext(ctx, v, f)
+			if err != nil {
+				return err
+			}
+			meta, _ := stream.MetaFromContext(ctx)
+			meta = meta.WithValue(k, val)
+			ctx = stream.ContextWithMeta(ctx, meta)
+			return p.Send(ctx, v)
+		})
+	})
+}
 
 // Field extracts A field from a struct and sends it forward
 // on a map it will walk through map
 // on a slice it's possible to have Field1.0.Field2
-func Field(f string) ProcFunc {
-	return func(p Proc) error {
+func Field(f string) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(ctx context.Context, v interface{}) error {
-			val, err := FieldOf(v, f)
+			val, err := FieldOfContext(ctx, v, f)
 			if err != nil {
 				return err
 			}
 			return p.Send(ctx, val)
 		})
-	}
+	})
 }
 
 type (
 	FMap map[string]string
 )
 
-func FieldMap(target interface{}, fm FMap) ProcFunc {
+func FieldMap(target interface{}, fm FMap) stream.Processor {
 	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
-	return func(p Proc) error {
+	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(ctx context.Context, v interface{}) error {
 			sv := reflect.New(typ)
 			vv := sv.Elem()
@@ -40,39 +57,37 @@ func FieldMap(target interface{}, fm FMap) ProcFunc {
 					return fmt.Errorf("field not found %q in %T", f, target)
 				}
 
-				// Maybe use template per field
-
-				/*tmpl := template.New("/")
-				tmpl, err := tmpl.Parse(string(f))
+				val, err := FieldOfContext(ctx, v, f)
 				if err != nil {
 					return err
 				}
-				buf := &bytes.Buffer{}
-				tmpl.Execute(buf, v)
-				field.Set(reflect.ValueOf(buf.String()))
-				*/
-
-				val, err := FieldOf(v, f)
-				if err != nil {
-					return err
-				}
-				field.Set(reflect.ValueOf(fmt.Sprint(val)))
+				field.Set(reflect.ValueOf(val))
 			}
 			return p.Send(ctx, vv.Interface())
 		})
-	}
+	})
 }
 
-// FieldOf returns a field of the value v by walking through the separators
+func FieldOf(v interface{}, p string) (interface{}, error) {
+	return FieldOfContext(context.Background(), v, p)
+}
+
+// FieldOfContext returns a field of the value v by walking through the separators
 // - on a struct it will walk through the struct Fields
 // - on a map[string]interface{} it will walk through map
 // - on a slice it's possible to have Field1.0.Field2
-func FieldOf(v interface{}, p string) (interface{}, error) {
-	if p == "." {
+func FieldOfContext(ctx context.Context, v interface{}, p string) (interface{}, error) {
+	if p == "" || p == "." {
 		return v, nil
 	}
 	pp := strings.Split(p, ".")
-	cur := reflect.Indirect(reflect.ValueOf(v))
+
+	var cur reflect.Value
+	if pp[0][0] == '#' {
+		k := pp[0][1:]
+		v = stream.MetaValueFromContext(ctx, k)
+	}
+	cur = reflect.Indirect(reflect.ValueOf(v))
 	for _, k := range pp {
 		switch cur.Kind() {
 		case reflect.Struct:
@@ -94,8 +109,11 @@ func FieldOf(v interface{}, p string) (interface{}, error) {
 			if !cur.IsValid() {
 				return nil, nil
 			}
-		default:
+		// case reflect.String:
+		case reflect.Invalid:
 			return nil, fmt.Errorf("invalid type: %T", v)
+			// default:
+			//	return nil, fmt.Errorf("invalid type: %T", v)
 		}
 		cur = reflect.Indirect(cur)
 		// This will solve stuff with underlying interface types

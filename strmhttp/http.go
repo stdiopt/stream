@@ -1,4 +1,4 @@
-package strmutil
+package strmhttp
 
 import (
 	"context"
@@ -6,35 +6,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/stdiopt/stream"
 )
 
-// HTTPGetResponse receives url as string, performs a get request and sends the
-// response
-func HTTPGetResponse(hdr http.Header) ProcFunc {
-	return func(p Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
-			url, ok := v.(string)
-			if !ok {
-				return errors.New("input should be a string")
-			}
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-			if err != nil {
-				return fmt.Errorf("HTTPGetResponse: %w", err)
-			}
-			req.Header = hdr
-			res, err := http.DefaultClient.Do(req)
-			if err != nil {
-				return fmt.Errorf("HTTPGetResponse: %w", err)
-			}
-			return p.Send(ctx, res)
-		})
+func WithHeader(k, v string) RequestFunc {
+	return func(r *http.Request) {
+		r.Header.Add(k, v)
 	}
 }
 
-// HTTPGet receives a stream of urls performs a get request and sends the
-// content as []byte
-func HTTPGet(hdr http.Header) ProcFunc {
-	return func(p Proc) error {
+type RequestFunc func(r *http.Request)
+
+// GetResponse receives url as string, performs a get request and sends the
+// response
+func GetResponse(reqFunc ...RequestFunc) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(ctx context.Context, v interface{}) error {
 			url, ok := v.(string)
 			if !ok {
@@ -42,7 +29,38 @@ func HTTPGet(hdr http.Header) ProcFunc {
 			}
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 			if err != nil {
-				return fmt.Errorf("HTTPGet: %w", err)
+				return fmt.Errorf("GetResponse: %w", err)
+			}
+
+			for _, fn := range reqFunc {
+				fn(req)
+			}
+
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("GetResponse: %w", err)
+			}
+			return p.Send(ctx, res)
+		})
+	})
+}
+
+// Get receives a stream of urls performs a get request and sends the
+// content as []byte
+func Get(reqFunc ...RequestFunc) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
+		return p.Consume(func(ctx context.Context, v interface{}) error {
+			url, ok := v.(string)
+			if !ok {
+				return errors.New("input should be a string")
+			}
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if err != nil {
+				return fmt.Errorf("Get: %w", err)
+			}
+
+			for _, fn := range reqFunc {
+				fn(req)
 			}
 
 			res, err := http.DefaultClient.Do(req)
@@ -52,9 +70,9 @@ func HTTPGet(hdr http.Header) ProcFunc {
 			defer res.Body.Close()
 			data, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				return fmt.Errorf("HTTPGet: %w", err)
+				return fmt.Errorf("Get: %w", err)
 			}
 			return p.Send(ctx, data)
 		})
-	}
+	})
 }

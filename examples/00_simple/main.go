@@ -10,7 +10,7 @@ import (
 func main() {
 	l := stream.Line(
 		producer(10),
-		consumer,
+		stream.Func(consumer),
 	)
 
 	if err := stream.Run(l); err != nil {
@@ -18,15 +18,15 @@ func main() {
 	}
 }
 
-func producer(n int) stream.ProcFunc {
-	return func(p stream.Proc) error {
+func producer(n int) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		for i := 0; i < 10; i++ {
 			if err := p.Send(p.Context(), i); err != nil {
 				return err
 			}
 		}
 		return nil
-	}
+	})
 }
 
 func consumer(p stream.Proc) error {

@@ -9,14 +9,14 @@ import (
 
 func main() {
 	stringAndReverse := stream.Line(
-		stringify,
-		reverse,
+		stream.Func(stringify),
+		stream.Func(reverse),
 	)
 
 	l := stream.Line(
 		generate(1234, 1345, 1),
 		stringAndReverse,
-		print,
+		stream.Func(print),
 	)
 	if err := stream.Run(l); err != nil {
 		fmt.Println("err:", err)
@@ -53,13 +53,13 @@ func print(p stream.Proc) error {
 }
 
 // generate numbers
-func generate(s, e, n int) stream.ProcFunc {
-	return func(p stream.Proc) error {
+func generate(s, e, n int) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		for i := s; i < e; i++ {
 			if err := p.Send(p.Context(), i); err != nil {
 				return err
 			}
 		}
 		return nil
-	}
+	})
 }

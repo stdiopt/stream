@@ -35,16 +35,18 @@ type aggOptions struct {
 
 type AggOptFunc func(a *aggOptions)
 
-func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
+func Aggregate(opt ...AggOptFunc) stream.Processor {
 	o := aggOptions{}
 	for _, fn := range opt {
 		fn(&o)
 	}
 
-	return func(p stream.Proc) error {
+	return stream.Func(func(p stream.Proc) error {
 		ctx := p.Context()
 		groupRef := map[interface{}]*Group{}
 		group := []*Group{}
+
+		// TODO: meta here
 
 		err := p.Consume(func(ctx context.Context, v interface{}) error {
 			if v == streamu.End {
@@ -72,7 +74,7 @@ func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := streamu.FieldOf(v, a.Field)
+				fi, err := streamu.FieldOfContext(ctx, v, a.Field)
 				if err != nil {
 					continue
 				}
@@ -85,7 +87,7 @@ func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
 			return err
 		}
 		return p.Send(ctx, group)
-	}
+	})
 }
 
 func GroupBy(name string, fn func(interface{}) interface{}) AggOptFunc {

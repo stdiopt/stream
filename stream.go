@@ -7,11 +7,19 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// RenameToBuilder
+type Processor interface {
+	Run(Proc) error
+
+	// Prevent implementations from outside
+	internal()
+}
+
 // ConsumerFunc function type to receive messages.
 type ConsumerFunc = func(context.Context, interface{}) error
 
 type Consumer interface {
-	Consume(ConsumerFunc) error
+	Consume(interface{}) error
 }
 
 type Sender interface {
@@ -24,19 +32,18 @@ type Proc interface {
 	Consumer
 	Sender
 	Context() context.Context
+	WithContext(context.Context) Proc
 }
 
-type ProcFunc = func(Proc) error
-
 // Line will consume and pass a message sequentually on all ProcFuncs.
-func Line(pfns ...ProcFunc) ProcFunc {
+func Line(pfns ...Processor) Processor {
 	if len(pfns) == 0 {
 		panic("no funcs")
 	}
 	if len(pfns) == 1 {
 		return pfns[0]
 	}
-	return func(p Proc) error {
+	return procFunc(func(p Proc) error {
 		ctx := p.Context()
 		eg, ctx := errgroup.WithContext(ctx)
 		// eg := errgroup.Group{}
@@ -45,34 +52,35 @@ func Line(pfns ...ProcFunc) ProcFunc {
 			l, fn := last, fn // shadow
 			if i == len(pfns)-1 {
 				// Last one will consume last to P
+				np := makeProc(ctx, l, p)
 				eg.Go(func() error {
-					return fn(MakeProc(ctx, l, p))
+					return fn.Run(np)
 				})
 				break
 			}
 			ch := NewChan(ctx, 0)
 			// Consuming from last and sending to channel
-			np := MakeProc(ctx, l, ch) // <- problem here, should the context be child?
+			np := makeProc(ctx, l, ch)
 			eg.Go(func() error {
 				defer ch.Close()
-				return fn(np)
+				return fn.Run(np)
 			})
-			last = MakeProc(ctx, ch, nil) // don't need a sender here
+			last = makeProc(ctx, ch, nil) // don't need a sender here
 		}
 		return eg.Wait()
-	}
+	})
 }
 
 // Broadcast consumes and passes the consumed message to all pfs ProcFuncs.
-func Broadcast(pfns ...ProcFunc) ProcFunc {
-	return func(p Proc) error {
+func Broadcast(pfns ...Processor) Processor {
+	return procFunc(func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		chs := make([]Chan, len(pfns))
 		for i, fn := range pfns {
 			ch := NewChan(ctx, 0)
 			fn := fn
 			eg.Go(func() error {
-				return fn(MakeProc(ctx, ch, p))
+				return fn.Run(makeProc(ctx, ch, p))
 			})
 			chs[i] = ch
 		}
@@ -92,31 +100,31 @@ func Broadcast(pfns ...ProcFunc) ProcFunc {
 			})
 		})
 		return eg.Wait()
-	}
+	})
 }
 
 // Workers will start N ProcFuncs consuming and sending on same channels.
-func Workers(n int, pfns ...ProcFunc) ProcFunc {
+func Workers(n int, pfns ...Processor) Processor {
 	pfn := Line(pfns...)
 	if n <= 0 {
 		n = 1
 	}
-	return func(p Proc) error {
+	return procFunc(func(p Proc) error {
 		ctx := p.Context()
 		eg := errgroup.Group{}
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
-				return pfn(MakeProc(ctx, p, p))
+				return pfn.Run(makeProc(ctx, p, p))
 			})
 		}
 		return eg.Wait()
-	}
+	})
 }
 
 // Buffer will create an extra buffered channel.
-func Buffer(n int, pfns ...ProcFunc) ProcFunc {
+func Buffer(n int, pfns ...Processor) Processor {
 	pfn := Line(pfns...)
-	return func(p Proc) error {
+	return procFunc(func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		ch := NewChan(ctx, n)
 		eg.Go(func() error {
@@ -124,19 +132,19 @@ func Buffer(n int, pfns ...ProcFunc) ProcFunc {
 			return p.Consume(ch.Send)
 		})
 		eg.Go(func() error {
-			return pfn(MakeProc(ctx, ch, p))
+			return pfn.Run(makeProc(ctx, ch, p))
 		})
 		return eg.Wait()
-	}
+	})
 }
 
 // Run will run the stream.
-func Run(pfns ...ProcFunc) error {
+func Run(pfns ...Processor) error {
 	return RunWithContext(context.Background(), pfns...)
 }
 
 // RunWithContext runs the stream with a context.
-func RunWithContext(ctx context.Context, pfns ...ProcFunc) error {
+func RunWithContext(ctx context.Context, pfns ...Processor) error {
 	pfn := Line(pfns...)
-	return pfn(MakeProc(ctx, nil, nil))
+	return pfn.Run(makeProc(ctx, nil, nil))
 }

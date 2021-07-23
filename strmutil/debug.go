@@ -2,16 +2,15 @@ package strmutil
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/stdiopt/stream"
 )
 
-func Print(w io.Writer, prefix string) stream.Processor {
+func Debug(w io.Writer) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(ctx context.Context, v interface{}) error {
-			fmt.Fprintf(w, "[%s] %v\n", prefix, v)
+			ctx = stream.ContextWithMetaValue(ctx, "_debug", w)
 			return p.Send(ctx, v)
 		})
 	})

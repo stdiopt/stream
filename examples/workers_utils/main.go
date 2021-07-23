@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 
 	"github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmhttp"
+	"github.com/stdiopt/stream/strmio"
+	"github.com/stdiopt/stream/strmjson"
 	"github.com/stdiopt/stream/strmutil"
 )
 
@@ -22,22 +25,22 @@ func main() {
 		strmutil.Value("https://randomuser.me/api/?results=100"),
 		contextWithValue(ctxKey, "first"),
 
-		strmutil.HTTPGetResponse(nil),
+		strmhttp.GetResponse(nil),
 		contextWithValue(ctxKey, "after response"),
 		strmutil.Field("Body"),
 		contextWithValue(ctxKey, "after Field"),
-		strmutil.IOWithReader(),
-		strmutil.JSONParse(nil),
+		strmio.WithReader(),
+		strmjson.Unmarshal(nil),
 		contextWithValue(ctxKey, "in reader"),
 		strmutil.Field("results"),
 		contextWithValue(ctxKey, "after results"),
 		strmutil.Unslice(),
 		strmutil.Field("picture.thumbnail"),
 		stream.Workers(32,
-			strmutil.HTTPGetResponse(nil),
-			HTTPDownload,
+			strmhttp.GetResponse(nil),
+			stream.Func(HTTPDownload),
 		),
-		strmutil.JSONDump(os.Stdout),
+		strmjson.Dump(os.Stdout),
 	)
 	if err != nil {
 		log.Println("err:", err)
@@ -52,13 +55,13 @@ func contextTrace(p stream.Proc) error {
 	})
 }
 
-func contextWithValue(ck, cv interface{}) stream.ProcFunc {
-	return func(p stream.Proc) error {
+func contextWithValue(ck, cv interface{}) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(ctx context.Context, v interface{}) error {
 			ctx = context.WithValue(ctx, ck, cv)
 			return p.Send(ctx, v)
 		})
-	}
+	})
 }
 
 type HTTPDownloadOutput struct {

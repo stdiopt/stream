@@ -1,4 +1,4 @@
-package strmutil
+package strmio
 
 import (
 	"context"
@@ -6,22 +6,26 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/stdiopt/stream"
 )
 
-func FileReader(path string) ProcFunc {
-	return func(p Proc) error {
+// FileReader reads file and sends byte down the line.
+func File(path string) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		f, err := os.Open(path)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 
-		return IOReader(f)(p)
-	}
+		return Reader(f).Run(p)
+	})
 }
 
-func IOReader(r io.Reader) ProcFunc {
-	return func(p Proc) error {
+// Reader reads bytes from r and sends down the line.
+func Reader(r io.Reader) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		ctx := p.Context()
 		buf := make([]byte, 4096)
 		isEOF := false
@@ -38,12 +42,12 @@ func IOReader(r io.Reader) ProcFunc {
 			}
 		}
 		return nil
-	}
+	})
 }
 
-// IOWithReader expects a io.ReadCloser as input and sends the reader bytes.
-func IOWithReader() ProcFunc {
-	return func(p Proc) error {
+// WithReader expects a io.ReadCloser as input and sends the reader bytes.
+func WithReader() stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(ctx context.Context, v interface{}) error {
 			r, ok := v.(io.ReadCloser)
 			if !ok {
@@ -68,21 +72,25 @@ func IOWithReader() ProcFunc {
 				}
 			}
 		})
-	}
+	})
 }
 
-// IOWriter consumes []byte and writes to io.Writer w.
-func IOWriter(w io.Writer) ProcFunc {
-	return func(p Proc) error {
-		return p.Consume(func(_ context.Context, v interface{}) error {
+// Writer consumes []byte and writes to io.Writer
+func Writer(w io.Writer) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
+		return p.Consume(func(ctx context.Context, v interface{}) error {
 			b, ok := v.([]byte)
 			if !ok {
 				return fmt.Errorf("wrong type: want []byte, got: %T", v)
 			}
 			_, err := w.Write(b)
+			if err != nil {
+				return err
+			}
+			p.Send(ctx, b)
 			return err
 		})
-	}
+	})
 }
 
 type ReadErrorCloser interface {
@@ -90,7 +98,7 @@ type ReadErrorCloser interface {
 	CloseWithError(error) error
 }
 
-func AsReader(p Proc) ReadErrorCloser {
+func AsReader(p stream.Proc) ReadErrorCloser {
 	pr, pw := io.Pipe()
 	go func() {
 		err := p.Consume(func(_ context.Context, v interface{}) error {

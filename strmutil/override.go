@@ -7,14 +7,14 @@ import (
 )
 
 type ProcOverride struct {
-	Proc
+	stream.Proc
 	ConsumerFunc func(stream.ConsumerFunc) error
 	SenderFunc   func(context.Context, interface{}) error
 }
 
-func (w ProcOverride) Consume(fn stream.ConsumerFunc) error {
+func (w ProcOverride) Consume(fn interface{}) error {
 	if w.ConsumerFunc != nil {
-		return w.ConsumerFunc(fn)
+		return w.ConsumerFunc(stream.MakeConsumerFunc(fn))
 	}
 	return w.Proc.Consume(fn)
 }

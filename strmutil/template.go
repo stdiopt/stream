@@ -5,12 +5,14 @@ import (
 	"context"
 	"fmt"
 	"text/template"
+
+	"github.com/stdiopt/stream"
 )
 
 // Template receives any type and processes it through the template described
 // on s and produces []byte
-func Template(s string) ProcFunc {
-	return func(p Proc) error {
+func Template(s string) stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
 		tmpl := template.New("/")
 		tmpl = tmpl.Option("missingkey=error")
 		tmpl = tmpl.Funcs(template.FuncMap{
@@ -29,5 +31,5 @@ func Template(s string) ProcFunc {
 			}
 			return p.Send(ctx, buf.Bytes())
 		})
-	}
+	})
 }
