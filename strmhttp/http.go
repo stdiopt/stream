@@ -1,7 +1,6 @@
 package strmhttp
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -22,12 +21,12 @@ type RequestFunc func(r *http.Request)
 // response
 func GetResponse(reqFunc ...RequestFunc) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
+		return p.Consume(func(v interface{}) error {
 			url, ok := v.(string)
 			if !ok {
 				return errors.New("input should be a string")
 			}
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			req, err := http.NewRequestWithContext(p.Context(), http.MethodGet, url, nil)
 			if err != nil {
 				return fmt.Errorf("GetResponse: %w", err)
 			}
@@ -40,7 +39,7 @@ func GetResponse(reqFunc ...RequestFunc) stream.Processor {
 			if err != nil {
 				return fmt.Errorf("GetResponse: %w", err)
 			}
-			return p.Send(ctx, res)
+			return p.Send(res)
 		})
 	})
 }
@@ -49,12 +48,12 @@ func GetResponse(reqFunc ...RequestFunc) stream.Processor {
 // content as []byte
 func Get(reqFunc ...RequestFunc) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
+		return p.Consume(func(v interface{}) error {
 			url, ok := v.(string)
 			if !ok {
 				return errors.New("input should be a string")
 			}
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			req, err := http.NewRequestWithContext(p.Context(), http.MethodGet, url, nil)
 			if err != nil {
 				return fmt.Errorf("Get: %w", err)
 			}
@@ -72,7 +71,7 @@ func Get(reqFunc ...RequestFunc) stream.Processor {
 			if err != nil {
 				return fmt.Errorf("Get: %w", err)
 			}
-			return p.Send(ctx, data)
+			return p.Send(data)
 		})
 	})
 }

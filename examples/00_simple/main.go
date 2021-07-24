@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/stdiopt/stream"
@@ -21,7 +20,7 @@ func main() {
 func producer(n int) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		for i := 0; i < 10; i++ {
-			if err := p.Send(p.Context(), i); err != nil {
+			if err := p.Send(i); err != nil {
 				return err
 			}
 		}
@@ -30,7 +29,7 @@ func producer(n int) stream.Processor {
 }
 
 func consumer(p stream.Proc) error {
-	return p.Consume(func(_ context.Context, v interface{}) error {
+	return p.Consume(func(v interface{}) error {
 		fmt.Println("Consuming:", v)
 		return nil
 	})

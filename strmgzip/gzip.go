@@ -2,7 +2,6 @@ package strmgzip
 
 import (
 	"compress/gzip"
-	"context"
 	"io"
 
 	"github.com/stdiopt/stream"
@@ -10,7 +9,7 @@ import (
 
 func Zip(lvl int) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, buf []byte) error {
+		return p.Consume(func(buf []byte) error {
 			pr, pw := io.Pipe()
 
 			go func() {
@@ -31,14 +30,14 @@ func Zip(lvl int) stream.Processor {
 				return err
 			}
 
-			return p.Send(ctx, rbuf)
+			return p.Send(rbuf)
 		})
 	})
 }
 
 func Unzip() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, buf []byte) error {
+		return p.Consume(func(buf []byte) error {
 			pr, pw := io.Pipe()
 
 			go func() {
@@ -56,7 +55,7 @@ func Unzip() stream.Processor {
 			if err != nil {
 				return err
 			}
-			return p.Send(ctx, rbuf)
+			return p.Send(rbuf)
 		})
 	})
 }

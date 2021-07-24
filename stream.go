@@ -4,35 +4,32 @@ package stream
 import (
 	"context"
 
+	"github.com/bwmarrin/snowflake"
 	"golang.org/x/sync/errgroup"
 )
 
-// RenameToBuilder
+var flake *snowflake.Node = func() *snowflake.Node {
+	r, err := snowflake.NewNode(1)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}()
+
+// Processor to build a processor use stream.Func
 type Processor interface {
-	Run(Proc) error
-
-	// Prevent implementations from outside
-	internal()
-}
-
-// ConsumerFunc function type to receive messages.
-type ConsumerFunc = func(context.Context, interface{}) error
-
-type Consumer interface {
-	Consume(interface{}) error
-}
-
-type Sender interface {
-	Send(ctx context.Context, v interface{}) error
+	run(*proc) error
 }
 
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
 // func.
 type Proc interface {
-	Consumer
-	Sender
+	Consume(interface{}) error
+	Send(interface{}) error
 	Context() context.Context
-	WithContext(context.Context) Proc
+	Set(string, interface{})
+	Value(string) interface{}
+	Meta() map[string]interface{}
 }
 
 // Line will consume and pass a message sequentually on all ProcFuncs.
@@ -43,29 +40,27 @@ func Line(pfns ...Processor) Processor {
 	if len(pfns) == 1 {
 		return pfns[0]
 	}
-	return procFunc(func(p Proc) error {
+	return procFunc(func(p *proc) error {
 		ctx := p.Context()
 		eg, ctx := errgroup.WithContext(ctx)
 		// eg := errgroup.Group{}
-		last := p // consumer should be nil
+		last := consumer(p) // consumer should be nil
 		for i, fn := range pfns {
 			l, fn := last, fn // shadow
 			if i == len(pfns)-1 {
 				// Last one will consume last to P
-				np := makeProc(ctx, l, p)
 				eg.Go(func() error {
-					return fn.Run(np)
+					return fn.run(newProc(ctx, l, p))
 				})
 				break
 			}
-			ch := NewChan(ctx, 0)
+			ch := newChan(ctx, 0)
 			// Consuming from last and sending to channel
-			np := makeProc(ctx, l, ch)
 			eg.Go(func() error {
 				defer ch.Close()
-				return fn.Run(np)
+				return fn.run(newProc(ctx, l, ch))
 			})
-			last = makeProc(ctx, ch, nil) // don't need a sender here
+			last = ch
 		}
 		return eg.Wait()
 	})
@@ -73,14 +68,14 @@ func Line(pfns ...Processor) Processor {
 
 // Broadcast consumes and passes the consumed message to all pfs ProcFuncs.
 func Broadcast(pfns ...Processor) Processor {
-	return procFunc(func(p Proc) error {
+	return procFunc(func(p *proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		chs := make([]Chan, len(pfns))
 		for i, fn := range pfns {
-			ch := NewChan(ctx, 0)
+			ch := newChan(ctx, 0)
 			fn := fn
 			eg.Go(func() error {
-				return fn.Run(makeProc(ctx, ch, p))
+				return fn.run(newProc(ctx, ch, p))
 			})
 			chs[i] = ch
 		}
@@ -90,9 +85,9 @@ func Broadcast(pfns ...Processor) Processor {
 					ch.Close()
 				}
 			}()
-			return p.Consume(func(ctx context.Context, v interface{}) error {
+			return p.consume(func(m message) error {
 				for _, ch := range chs {
-					if err := ch.Send(ctx, v); err != nil {
+					if err := ch.send(m); err != nil {
 						return err
 					}
 				}
@@ -109,12 +104,12 @@ func Workers(n int, pfns ...Processor) Processor {
 	if n <= 0 {
 		n = 1
 	}
-	return procFunc(func(p Proc) error {
+	return procFunc(func(p *proc) error {
 		ctx := p.Context()
 		eg := errgroup.Group{}
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
-				return pfn.Run(makeProc(ctx, p, p))
+				return pfn.run(newProc(ctx, p, p))
 			})
 		}
 		return eg.Wait()
@@ -124,15 +119,15 @@ func Workers(n int, pfns ...Processor) Processor {
 // Buffer will create an extra buffered channel.
 func Buffer(n int, pfns ...Processor) Processor {
 	pfn := Line(pfns...)
-	return procFunc(func(p Proc) error {
+	return procFunc(func(p *proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
-		ch := NewChan(ctx, n)
+		ch := newChan(ctx, n)
 		eg.Go(func() error {
 			defer ch.Close()
-			return p.Consume(ch.Send)
+			return p.consume(ch.send)
 		})
 		eg.Go(func() error {
-			return pfn.Run(makeProc(ctx, ch, p))
+			return pfn.run(newProc(ctx, ch, p))
 		})
 		return eg.Wait()
 	})
@@ -146,5 +141,5 @@ func Run(pfns ...Processor) error {
 // RunWithContext runs the stream with a context.
 func RunWithContext(ctx context.Context, pfns ...Processor) error {
 	pfn := Line(pfns...)
-	return pfn.Run(makeProc(ctx, nil, nil))
+	return pfn.run(newProc(ctx, nil, nil))
 }

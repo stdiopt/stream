@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -23,21 +22,16 @@ var ctxKey string = "k"
 func main() {
 	err := stream.Run(
 		strmutil.Value("https://randomuser.me/api/?results=100"),
-		contextWithValue(ctxKey, "first"),
 
-		strmhttp.GetResponse(nil),
-		contextWithValue(ctxKey, "after response"),
+		strmhttp.GetResponse(),
 		strmutil.Field("Body"),
-		contextWithValue(ctxKey, "after Field"),
 		strmio.WithReader(),
-		strmjson.Unmarshal(nil),
-		contextWithValue(ctxKey, "in reader"),
+		strmjson.Decode(nil),
 		strmutil.Field("results"),
-		contextWithValue(ctxKey, "after results"),
 		strmutil.Unslice(),
 		strmutil.Field("picture.thumbnail"),
 		stream.Workers(32,
-			strmhttp.GetResponse(nil),
+			strmhttp.GetResponse(),
 			stream.Func(HTTPDownload),
 		),
 		strmjson.Dump(os.Stdout),
@@ -47,30 +41,13 @@ func main() {
 	}
 }
 
-func contextTrace(p stream.Proc) error {
-	return p.Consume(func(ctx context.Context, v interface{}) error {
-		log.Println("  Parent: ", p.Context().Value(ctxKey))
-		log.Println("  Message:", ctx.Value(ctxKey))
-		return p.Send(ctx, v)
-	})
-}
-
-func contextWithValue(ck, cv interface{}) stream.Processor {
-	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
-			ctx = context.WithValue(ctx, ck, cv)
-			return p.Send(ctx, v)
-		})
-	})
-}
-
 type HTTPDownloadOutput struct {
 	URL  string
 	Data string
 }
 
 func HTTPDownload(p stream.Proc) error {
-	return p.Consume(func(ctx context.Context, v interface{}) error {
+	return p.Consume(func(v interface{}) error {
 		res, ok := v.(*http.Response)
 		if !ok {
 			return fmt.Errorf("needs a *http.Response but got: %T", v)
@@ -84,7 +61,7 @@ func HTTPDownload(p stream.Proc) error {
 		b64data := base64.StdEncoding.EncodeToString(data)
 		m := mime.TypeByExtension(filepath.Ext(url))
 
-		return p.Send(ctx, HTTPDownloadOutput{
+		return p.Send(HTTPDownloadOutput{
 			URL:  url,
 			Data: fmt.Sprintf("data:%s;base64,%s", m, b64data),
 		})

@@ -1,7 +1,6 @@
 package strmutil
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -10,17 +9,15 @@ import (
 	"github.com/stdiopt/stream"
 )
 
-func FieldToMeta(k, f string) stream.Processor {
+func FieldToMeta(f, k string) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
-			val, err := FieldOfContext(ctx, v, f)
+		return p.Consume(func(v interface{}) error {
+			val, err := MetaField(p, v, f)
 			if err != nil {
 				return err
 			}
-			meta, _ := stream.MetaFromContext(ctx)
-			meta = meta.WithValue(k, val)
-			ctx = stream.ContextWithMeta(ctx, meta)
-			return p.Send(ctx, v)
+			p.Set(k, val)
+			return p.Send(v)
 		})
 	})
 }
@@ -30,12 +27,12 @@ func FieldToMeta(k, f string) stream.Processor {
 // on a slice it's possible to have Field1.0.Field2
 func Field(f string) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
-			val, err := FieldOfContext(ctx, v, f)
+		return p.Consume(func(v interface{}) error {
+			val, err := MetaField(p, v, f)
 			if err != nil {
 				return err
 			}
-			return p.Send(ctx, val)
+			return p.Send(val)
 		})
 	})
 }
@@ -47,7 +44,7 @@ type (
 func FieldMap(target interface{}, fm FMap) stream.Processor {
 	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
+		return p.Consume(func(v interface{}) error {
 			sv := reflect.New(typ)
 			vv := sv.Elem()
 			for k, f := range fm {
@@ -57,35 +54,35 @@ func FieldMap(target interface{}, fm FMap) stream.Processor {
 					return fmt.Errorf("field not found %q in %T", f, target)
 				}
 
-				val, err := FieldOfContext(ctx, v, f)
+				val, err := MetaField(p, v, f)
 				if err != nil {
 					return err
 				}
 				field.Set(reflect.ValueOf(val))
 			}
-			return p.Send(ctx, vv.Interface())
+			return p.Send(vv.Interface())
 		})
 	})
 }
 
 func FieldOf(v interface{}, p string) (interface{}, error) {
-	return FieldOfContext(context.Background(), v, p)
+	return MetaField(nil, v, p)
 }
 
-// FieldOfContext returns a field of the value v by walking through the separators
+// MetaField returns a field of the value v by walking through the separators
 // - on a struct it will walk through the struct Fields
 // - on a map[string]interface{} it will walk through map
 // - on a slice it's possible to have Field1.0.Field2
-func FieldOfContext(ctx context.Context, v interface{}, p string) (interface{}, error) {
-	if p == "" || p == "." {
+func MetaField(p stream.Proc, v interface{}, s string) (interface{}, error) {
+	if s == "" || s == "." {
 		return v, nil
 	}
-	pp := strings.Split(p, ".")
+	pp := strings.Split(s, ".")
 
 	var cur reflect.Value
-	if pp[0][0] == '#' {
+	if p != nil && pp[0][0] == '#' {
 		k := pp[0][1:]
-		v = stream.MetaValueFromContext(ctx, k)
+		v = p.Value(k)
 	}
 	cur = reflect.Indirect(reflect.ValueOf(v))
 	for _, k := range pp {

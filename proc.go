@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"reflect"
 	"runtime"
+
+	"github.com/bwmarrin/snowflake"
 )
 
-type procFunc func(Proc) error
+type procFunc func(*proc) error
 
-func (fn procFunc) Run(p Proc) error { return fn(p) }
-func (fn procFunc) internal()        {}
+func (fn procFunc) run(p *proc) error { return fn(p) }
+func (fn procFunc) internal()         {}
 
-var (
-	fnCtxKey  = struct{ s string }{"fn"}
-	dbgCtxKey = struct{ s string }{"dbg"}
-)
+var dbgCtxKey = struct{ s string }{"dbg"}
 
 func ContextWithDebug(ctx context.Context, w io.Writer) context.Context {
 	return context.WithValue(ctx, dbgCtxKey, w)
@@ -39,28 +39,9 @@ func Func(fn func(Proc) error) Processor {
 
 	dname := fmt.Sprintf("%s %s:%d", name, file, l)
 
-	return procFunc(func(p Proc) error {
-		pp := override{
-			Proc: p,
-			SenderFunc: func(ctx context.Context, v interface{}) error {
-				meta, ok := MetaFromContext(ctx)
-				if !ok {
-					meta = NewMeta()
-					ctx = ContextWithMeta(ctx, meta)
-				}
-				meta = meta.WithCaller(name)
-				ctx = ContextWithMeta(ctx, meta)
-
-				ctx = context.WithValue(ctx, fnCtxKey, dname)
-
-				if w, ok := ctx.Value(dbgCtxKey).(io.Writer); ok {
-					fmt.Fprint(w, DebugCtx(ctx, dname, v))
-				}
-				return p.Send(ctx, v)
-			},
-		}
-
-		if err := fn(pp); err != nil {
+	return procFunc(func(p *proc) error {
+		p.dname = dname
+		if err := fn(p); err != nil {
 			return strmError{
 				name: name,
 				file: file,
@@ -72,60 +53,148 @@ func Func(fn func(Proc) error) Processor {
 	})
 }
 
+type consumerFunc = func(message) error
+
+type consumer interface {
+	consume(consumerFunc) error
+}
+
+type sender interface {
+	send(message) error
+}
+
 // proc implements the Proc interface
 type proc struct {
+	id  snowflake.ID
 	ctx context.Context
-	Consumer
-	Sender
+	consumer
+	sender
+
+	dname string
+	// State to be sent to next Processor
+	meta       map[string]interface{}
+	sendCalled bool
 }
 
-// makeProc makes a Proc based on a Consumer and Sender.
-func makeProc(ctx context.Context, c Consumer, s Sender) *proc {
-	return &proc{ctx, c, s}
+// newProc makes a Proc based on a Consumer and Sender.
+func newProc(ctx context.Context, c consumer, s sender) *proc {
+	return &proc{
+		id:       flake.Generate(),
+		ctx:      ctx,
+		consumer: c,
+		sender:   s,
+	}
 }
 
-func (p proc) Consume(fn interface{}) error {
-	if p.Consumer == nil {
+func (p *proc) Set(k string, v interface{}) {
+	if p.meta == nil {
+		p.meta = map[string]interface{}{}
+	}
+	p.meta[k] = v
+}
+
+func (p *proc) Value(k string) interface{} {
+	if p.meta == nil {
 		return nil
 	}
-	return p.Consumer.Consume(fn)
+	return p.meta[k]
 }
 
-func (p proc) Send(ctx context.Context, v interface{}) error {
-	if p.Sender == nil {
+func (p *proc) Meta() map[string]interface{} {
+	if p.meta == nil {
 		return nil
 	}
-	return p.Sender.Send(ctx, v)
+	m := map[string]interface{}{}
+	for k, v := range p.meta {
+		m[k] = v
+	}
+	return m
+}
+
+func (p *proc) Consume(fn interface{}) error {
+	cfn := makeConsumerFunc(fn)
+	return p.consume(func(m message) error {
+		// Lock
+		if p.meta == nil {
+			p.meta = map[string]interface{}{}
+		}
+		for k, v := range m.meta {
+			p.meta[k] = v
+		}
+		// enter consume
+		// defer exit consume
+		p.sendCalled = false
+		if err := cfn(m); err != nil {
+			return err
+		}
+		if p.sendCalled {
+			p.meta = map[string]interface{}{}
+		}
+		return nil
+	})
+}
+
+func (p *proc) Send(v interface{}) error {
+	p.sendCalled = true
+
+	var meta map[string]interface{}
+	if p.meta != nil {
+		meta = map[string]interface{}{}
+		for k, v := range p.meta {
+			meta[k] = v
+		}
+	}
+
+	if w, ok := meta["_debug"].(io.Writer); ok {
+		fmt.Fprint(w, DebugProc(p, v))
+	}
+	return p.send(message{
+		value: v,
+		meta:  meta,
+	})
 }
 
 func (p proc) Context() context.Context {
 	return p.ctx
 }
 
-func (p proc) WithContext(ctx context.Context) Proc {
-	return proc{
-		ctx:      ctx,
-		Consumer: p.Consumer,
-		Sender:   p.Sender,
+// the only two important funcs that could be discarded?
+func (p proc) consume(fn func(message) error) error {
+	if p.consumer == nil {
+		return fn(message{})
 	}
+	return p.consumer.consume(fn)
 }
 
-type override struct {
-	Proc
-	ConsumerFunc func(ConsumerFunc) error
-	SenderFunc   func(context.Context, interface{}) error
+func (p proc) send(m message) error {
+	if p.sender == nil {
+		return nil
+	}
+	return p.sender.send(m)
 }
 
-func (w override) Consume(fn interface{}) error {
-	if w.ConsumerFunc != nil {
-		return w.ConsumerFunc(MakeConsumerFunc(fn))
+// Is a bit slower but some what wrappers typed messages.
+func makeConsumerFunc(fn interface{}) consumerFunc {
+	switch fn := fn.(type) {
+	case consumerFunc:
+		return fn
+	case func(interface{}) error:
+		return func(m message) error { return fn(m.value) }
 	}
-	return w.Proc.Consume(fn)
-}
 
-func (w override) Send(ctx context.Context, v interface{}) error {
-	if w.SenderFunc != nil {
-		return w.SenderFunc(ctx, v)
+	// Any other param types
+	fnVal := reflect.ValueOf(fn)
+	fnTyp := fnVal.Type()
+	if fnTyp.NumIn() != 1 {
+		panic("should have 1 params")
 	}
-	return w.Proc.Send(ctx, v)
+	args := make([]reflect.Value, 1)
+	return func(v message) error {
+		args[0] = reflect.ValueOf(v.value) // will panic if wrong type passed
+		ret := fnVal.Call(args)
+		if err, ok := ret[0].Interface().(error); ok && err != nil {
+			return err
+		}
+		return nil
+	}
 }

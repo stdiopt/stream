@@ -2,7 +2,6 @@
 package strmagg
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/stdiopt/stream"
@@ -42,15 +41,14 @@ func Aggregate(opt ...AggOptFunc) stream.Processor {
 	}
 
 	return stream.Func(func(p stream.Proc) error {
-		ctx := p.Context()
 		groupRef := map[interface{}]*Group{}
 		group := []*Group{}
 
 		// TODO: meta here
 
-		err := p.Consume(func(ctx context.Context, v interface{}) error {
+		err := p.Consume(func(v interface{}) error {
 			if v == streamu.End {
-				return p.Send(ctx, group)
+				return p.Send(group)
 			}
 			key := o.groupBy(v)
 
@@ -74,7 +72,7 @@ func Aggregate(opt ...AggOptFunc) stream.Processor {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := streamu.FieldOfContext(ctx, v, a.Field)
+				fi, err := streamu.MetaField(p, v, a.Field)
 				if err != nil {
 					continue
 				}
@@ -86,7 +84,7 @@ func Aggregate(opt ...AggOptFunc) stream.Processor {
 		if err != nil {
 			return err
 		}
-		return p.Send(ctx, group)
+		return p.Send(group)
 	})
 }
 

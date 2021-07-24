@@ -2,7 +2,6 @@ package strmgzip
 
 import (
 	"compress/gzip"
-	"context"
 	"io"
 
 	"github.com/stdiopt/stream"
@@ -56,10 +55,6 @@ import (
 // Provide a way to send a Writer and still send Meta
 func Writer(lvl int) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		ctx := p.Context()
-
-		meta := stream.NewMeta()
-
 		pr, pw := io.Pipe()
 		go func() {
 			w, err := gzip.NewWriterLevel(pw, lvl)
@@ -67,11 +62,7 @@ func Writer(lvl int) stream.Processor {
 				pw.CloseWithError(err)
 				return
 			}
-			pw.CloseWithError(p.Consume(func(ctx context.Context, buf []byte) error {
-				// might need lock
-				if m, ok := stream.MetaFromContext(ctx); ok {
-					meta = meta.Merge(m)
-				}
+			pw.CloseWithError(p.Consume(func(buf []byte) error {
 				if _, err := w.Write(buf); err != nil {
 					return err
 				}
@@ -91,11 +82,8 @@ func Writer(lvl int) stream.Processor {
 				return err
 			}
 
-			ctx = stream.ContextWithMeta(ctx, meta)
-			meta = stream.Meta{}
-
 			sbuf := append([]byte{}, buf[:n]...)
-			if err := p.Send(ctx, sbuf); err != nil {
+			if err := p.Send(sbuf); err != nil {
 				pw.CloseWithError(err)
 				return err
 			}
@@ -106,16 +94,9 @@ func Writer(lvl int) stream.Processor {
 
 func Reader() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		ctx := p.Context()
-
-		meta := stream.NewMeta()
-
 		pr, pw := io.Pipe()
 		go func() {
-			pw.CloseWithError(p.Consume(func(ctx context.Context, buf []byte) error {
-				if m, ok := stream.MetaFromContext(ctx); ok {
-					meta = meta.Merge(m)
-				}
+			pw.CloseWithError(p.Consume(func(buf []byte) error {
 				_, err := pw.Write(buf)
 				return err
 			}))
@@ -136,11 +117,8 @@ func Reader() stream.Processor {
 				return pr.CloseWithError(err)
 			}
 
-			ctx = stream.ContextWithMeta(ctx, meta)
-			meta = stream.NewMeta()
-
 			sbuf := append([]byte{}, buf[:n]...)
-			if err := p.Send(ctx, sbuf); err != nil {
+			if err := p.Send(sbuf); err != nil {
 				return pr.CloseWithError(err)
 			}
 		}

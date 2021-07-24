@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/stdiopt/stream"
@@ -33,9 +32,9 @@ func main() {
 			stream.Line(
 				// Only sends if number is even
 				stream.Func(func(p stream.Proc) error {
-					return p.Consume(func(ctx context.Context, v interface{}) error {
+					return p.Consume(func(v interface{}) error {
 						if n, ok := v.(int); ok && n&1 == 0 {
-							return p.Send(ctx, v)
+							return p.Send(v)
 						}
 						return nil
 					})
@@ -45,9 +44,9 @@ func main() {
 			// Only sends if number is odd
 			stream.Line(
 				stream.Func(func(p stream.Proc) error {
-					return p.Consume(func(ctx context.Context, v interface{}) error {
+					return p.Consume(func(v interface{}) error {
 						if n, ok := v.(int); ok && n&1 == 1 {
-							return p.Send(ctx, v)
+							return p.Send(v)
 						}
 						return nil
 					})
@@ -64,15 +63,15 @@ func main() {
 
 func termColor(c string) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
-			return p.Send(ctx, fmt.Sprintf("%s%v\033[0m", c, v))
+		return p.Consume(func(v interface{}) error {
+			return p.Send(fmt.Sprintf("%s%v\033[0m", c, v))
 		})
 	})
 }
 
 func printer(prefix string) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(_ context.Context, v interface{}) error {
+		return p.Consume(func(v interface{}) error {
 			fmt.Printf("%s%v\n", prefix, v)
 			return nil
 		})
@@ -83,7 +82,7 @@ func printer(prefix string) stream.Processor {
 func generate(s, e, n int) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		for i := s; i < e; i += n {
-			if err := p.Send(p.Context(), i); err != nil {
+			if err := p.Send(i); err != nil {
 				return err
 			}
 		}

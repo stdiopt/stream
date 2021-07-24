@@ -1,4 +1,4 @@
-package stream_test
+package stream
 
 import (
 	"context"
@@ -6,33 +6,31 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stdiopt/stream"
 )
 
 func TestConsumex(t *testing.T) {
 	testError := errors.New("test")
 	type testCase struct {
 		ctx      context.Context
-		fn       func(stream.Chan, *[]interface{}) stream.ConsumerFunc
+		fn       func(Chan, *[]interface{}) consumerFunc
 		wantData []interface{}
 		wantErr  error
 	}
 
 	test := func(tt testCase) func(t *testing.T) {
 		return func(t *testing.T) {
-			ch := stream.NewChan(tt.ctx, 0)
+			ch := newChan(tt.ctx, 0)
 			go func() {
 				defer ch.Close()
 				for i := 0; i < 4; i++ {
-					ch.Send(tt.ctx, i) // nolint: errcheck
+					ch.send(message{value: i}) // nolint: errcheck
 				}
 			}()
 
 			consumed := []interface{}{}
 			fn := tt.fn(ch, &consumed)
 
-			err := ch.Consume(fn)
+			err := ch.consume(fn)
 			if want := tt.wantErr; err != want {
 				t.Errorf("\nwant: %v\n got: %v\n", want, err)
 			}
@@ -50,9 +48,9 @@ func TestConsumex(t *testing.T) {
 
 	t.Run("consume with no error", test(testCase{
 		ctx: context.Background(),
-		fn: func(c stream.Chan, out *[]interface{}) stream.ConsumerFunc {
-			return func(_ context.Context, v interface{}) error {
-				*out = append(*out, v)
+		fn: func(c Chan, out *[]interface{}) consumerFunc {
+			return func(m message) error {
+				*out = append(*out, m.value)
 				return nil
 			}
 		},
@@ -61,9 +59,9 @@ func TestConsumex(t *testing.T) {
 	}))
 	t.Run("consume should return testError", test(testCase{
 		ctx: context.Background(),
-		fn: func(c stream.Chan, out *[]interface{}) stream.ConsumerFunc {
-			return func(_ context.Context, v interface{}) error {
-				*out = append(*out, v)
+		fn: func(c Chan, out *[]interface{}) consumerFunc {
+			return func(m message) error {
+				*out = append(*out, m.value)
 				return testError
 			}
 		},
@@ -76,9 +74,9 @@ func TestConsumex(t *testing.T) {
 			cancel()
 			return ctx
 		}(),
-		fn: func(c stream.Chan, out *[]interface{}) stream.ConsumerFunc {
-			return func(_ context.Context, v interface{}) error {
-				*out = append(*out, v)
+		fn: func(c Chan, out *[]interface{}) consumerFunc {
+			return func(m message) error {
+				*out = append(*out, m.value)
 				return nil
 			}
 		},
@@ -101,18 +99,18 @@ func TestSend(t *testing.T) {
 			consumed := []interface{}{}
 			wg := sync.WaitGroup{}
 
-			ch := stream.NewChan(tt.ctx, 0)
+			ch := newChan(tt.ctx, 0)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ch.Consume(func(_ context.Context, v interface{}) error { // nolint: errcheck
-					consumed = append(consumed, v)
+				ch.consume(func(m message) error { // nolint: errcheck
+					consumed = append(consumed, m.value)
 					return tt.consumerErr
 				})
 			}()
 
 			for _, s := range tt.values {
-				err := ch.Send(tt.ctx, s)
+				err := ch.send(message{value: s})
 				if want := tt.wantErr; err != want {
 					t.Errorf("\nwant: %v\n got: %v\n", want, err)
 					break

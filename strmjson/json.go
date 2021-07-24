@@ -1,7 +1,6 @@
 package strmjson
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"reflect"
@@ -27,21 +26,14 @@ func Decode(v interface{}) stream.Processor {
 	typ := reflect.Indirect(reflect.ValueOf(v)).Type()
 
 	return stream.Func(func(p stream.Proc) error {
-		ctx := p.Context()
-
-		meta := stream.NewMeta()
 		pr, pw := io.Pipe()
 		dec := json.NewDecoder(pr)
-
 		go func() {
-			pw.CloseWithError(p.Consume(func(ctx context.Context, buf []byte) error {
-				if m, ok := stream.MetaFromContext(ctx); ok {
-					meta = meta.Merge(m)
-				}
-
+			pw.CloseWithError(p.Consume(func(buf []byte) error {
 				_, err := pw.Write(buf)
 				if err != nil {
-					return pw.CloseWithError(err)
+					pw.CloseWithError(err)
+					return err
 				}
 				return err
 			}))
@@ -63,10 +55,7 @@ func Decode(v interface{}) stream.Processor {
 				v = *vv
 			}
 
-			ctx = stream.ContextWithMeta(ctx, meta)
-			meta = stream.NewMeta()
-
-			if err := p.Send(ctx, v); err != nil {
+			if err := p.Send(v); err != nil {
 				pr.CloseWithError(err)
 				return err
 			}
@@ -77,27 +66,16 @@ func Decode(v interface{}) stream.Processor {
 
 func Encode() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		ctx := p.Context()
-		meta := stream.NewMeta()
 		pr, pw := io.Pipe()
-
 		go func() {
 			enc := json.NewEncoder(pw)
-			pw.CloseWithError(p.Consume(func(ctx context.Context, v interface{}) error {
-				if m, ok := stream.MetaFromContext(ctx); ok {
-					meta = meta.Merge(m)
-				}
+			pw.CloseWithError(p.Consume(func(v interface{}) error {
 				return enc.Encode(v)
 			}))
 		}()
 
 		buf := make([]byte, 4096)
 		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
 			n, err := pr.Read(buf)
 			if err == io.EOF {
 				break
@@ -107,10 +85,7 @@ func Encode() stream.Processor {
 			}
 			sbuf := append([]byte{}, buf[:n]...)
 
-			ctx = stream.ContextWithMeta(ctx, meta)
-			meta = stream.NewMeta()
-
-			if err := p.Send(ctx, sbuf); err != nil {
+			if err := p.Send(sbuf); err != nil {
 				pw.CloseWithError(err)
 				return err
 			}
@@ -126,7 +101,7 @@ func Unmarshal(v interface{}) stream.Processor {
 	}
 	typ := reflect.Indirect(reflect.ValueOf(v)).Type()
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, buf []byte) error {
+		return p.Consume(func(buf []byte) error {
 			v := reflect.New(typ).Interface()
 
 			if err := json.Unmarshal(buf, v); err != nil {
@@ -137,20 +112,20 @@ func Unmarshal(v interface{}) stream.Processor {
 				v = *vv
 			}
 
-			return p.Send(ctx, v)
+			return p.Send(v)
 		})
 	})
 }
 
 func Marshal() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(ctx context.Context, v interface{}) error {
+		return p.Consume(func(v interface{}) error {
 			buf, err := json.Marshal(v)
 			if err != nil {
 				return err
 			}
 
-			return p.Send(ctx, buf)
+			return p.Send(buf)
 		})
 	})
 }
@@ -161,11 +136,11 @@ func Dump(w io.Writer) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		return p.Consume(func(ctx context.Context, v interface{}) error {
+		return p.Consume(func(v interface{}) error {
 			if err := enc.Encode(v); err != nil {
 				return err
 			}
-			return p.Send(ctx, v)
+			return p.Send(v)
 		})
 	})
 }

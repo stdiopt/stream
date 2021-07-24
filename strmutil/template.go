@@ -2,7 +2,6 @@ package strmutil
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"text/template"
 
@@ -24,12 +23,12 @@ func Template(s string) stream.Processor {
 		if err != nil {
 			return err
 		}
-		return p.Consume(func(ctx context.Context, v interface{}) error {
+		return p.Consume(func(v interface{}) error {
 			buf := &bytes.Buffer{}
 			if err := tmpl.Execute(buf, v); err != nil {
 				return err
 			}
-			return p.Send(ctx, buf.Bytes())
+			return p.Send(buf.Bytes())
 		})
 	})
 }

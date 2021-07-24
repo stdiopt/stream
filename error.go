@@ -2,7 +2,6 @@ package stream
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -27,14 +26,12 @@ func (e strmError) Error() string {
 	)
 }
 
-func DebugCtx(ctx context.Context, prefix string, v interface{}) string {
+func DebugProc(p *proc, v interface{}) string {
 	buf := &bytes.Buffer{}
 
-	meta, _ := MetaFromContext(ctx)
-
-	fmt.Fprintf(buf, "[\033[01;37m%s\033[0m] ", prefix)
+	fmt.Fprintf(buf, "[\033[01;37m%s\033[0m] ", p.dname)
 	fmt.Fprintf(buf, "\033[01;33m%T\033[0m ", v)
-	fmt.Fprintf(buf, "meta: \033[34m%v\033[0m\n\t", meta)
+	fmt.Fprintf(buf, "meta: \033[34m%v\033[0m\n\t", p.meta)
 
 	switch v := v.(type) {
 	case string:
