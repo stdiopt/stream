@@ -72,7 +72,7 @@ func Aggregate(opt ...AggOptFunc) stream.Processor {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := streamu.MetaField(p, v, a.Field)
+				fi, err := streamu.MetaFieldOf(p, v, a.Field)
 				if err != nil {
 					continue
 				}

@@ -21,17 +21,6 @@ type Processor interface {
 	run(*proc) error
 }
 
-// Proc is the interface used by ProcFuncs to Consume and send data to the next
-// func.
-type Proc interface {
-	Consume(interface{}) error
-	Send(interface{}) error
-	Context() context.Context
-	Set(string, interface{})
-	Value(string) interface{}
-	Meta() map[string]interface{}
-}
-
 // Line will consume and pass a message sequentually on all ProcFuncs.
 func Line(pfns ...Processor) Processor {
 	if len(pfns) == 0 {
@@ -43,13 +32,13 @@ func Line(pfns ...Processor) Processor {
 	return procFunc(func(p *proc) error {
 		ctx := p.Context()
 		eg, ctx := errgroup.WithContext(ctx)
-		// eg := errgroup.Group{}
 		last := consumer(p) // consumer should be nil
 		for i, fn := range pfns {
-			l, fn := last, fn // shadow
+			l, fn := last, fn
 			if i == len(pfns)-1 {
 				// Last one will consume last to P
 				eg.Go(func() error {
+					defer l.cancel()
 					return fn.run(newProc(ctx, l, p))
 				})
 				break
@@ -57,6 +46,7 @@ func Line(pfns ...Processor) Processor {
 			ch := newChan(ctx, 0)
 			// Consuming from last and sending to channel
 			eg.Go(func() error {
+				defer l.cancel()
 				defer ch.Close()
 				return fn.run(newProc(ctx, l, ch))
 			})
@@ -106,7 +96,7 @@ func Workers(n int, pfns ...Processor) Processor {
 	}
 	return procFunc(func(p *proc) error {
 		ctx := p.Context()
-		eg := errgroup.Group{}
+		eg, ctx := errgroup.WithContext(ctx)
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
 				return pfn.run(newProc(ctx, p, p))

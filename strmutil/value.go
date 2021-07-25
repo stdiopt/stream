@@ -7,7 +7,9 @@ import (
 // Value returns a ProcFunc that sends a single value v.
 func Value(v interface{}) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		return p.Send(v)
+		return p.Consume(func(interface{}) error {
+			return p.Send(v)
+		})
 	})
 }
 

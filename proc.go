@@ -11,10 +11,22 @@ import (
 	"github.com/bwmarrin/snowflake"
 )
 
+// Proc is the interface used by ProcFuncs to Consume and send data to the next
+// func.
+type Proc interface {
+	Consume(interface{}) error
+	Send(interface{}) error
+
+	Context() context.Context
+
+	MetaSet(string, interface{})
+	MetaValue(string) interface{}
+	Meta() map[string]interface{}
+}
+
 type procFunc func(*proc) error
 
 func (fn procFunc) run(p *proc) error { return fn(p) }
-func (fn procFunc) internal()         {}
 
 var dbgCtxKey = struct{ s string }{"dbg"}
 
@@ -53,10 +65,31 @@ func Func(fn func(Proc) error) Processor {
 	})
 }
 
+func F(fn interface{}) Processor {
+	fnVal := reflect.ValueOf(fn)
+	return Func(func(p Proc) error {
+		procVal := reflect.ValueOf(p)
+		return p.Consume(func(v interface{}) error {
+			var arg reflect.Value
+			if v == nil {
+				arg = reflect.ValueOf(&v).Elem()
+			} else {
+				arg = reflect.ValueOf(v)
+			}
+			ret := fnVal.Call([]reflect.Value{procVal, arg})
+			if err, ok := ret[0].Interface().(error); ok && err != nil {
+				return err
+			}
+			return nil
+		})
+	})
+}
+
 type consumerFunc = func(message) error
 
 type consumer interface {
 	consume(consumerFunc) error
+	cancel()
 }
 
 type sender interface {
@@ -71,9 +104,8 @@ type proc struct {
 	sender
 
 	dname string
-	// State to be sent to next Processor
-	meta       map[string]interface{}
-	sendCalled bool
+	// State to send to next Processor on message
+	meta meta
 }
 
 // newProc makes a Proc based on a Consumer and Sender.
@@ -86,87 +118,74 @@ func newProc(ctx context.Context, c consumer, s sender) *proc {
 	}
 }
 
-func (p *proc) Set(k string, v interface{}) {
-	if p.meta == nil {
-		p.meta = map[string]interface{}{}
-	}
-	p.meta[k] = v
+func (p *proc) MetaSet(k string, v interface{}) {
+	p.meta.Set(k, v)
 }
 
-func (p *proc) Value(k string) interface{} {
-	if p.meta == nil {
-		return nil
-	}
-	return p.meta[k]
+func (p *proc) MetaValue(k string) interface{} {
+	return p.meta.Get(k)
 }
 
 func (p *proc) Meta() map[string]interface{} {
-	if p.meta == nil {
-		return nil
-	}
-	m := map[string]interface{}{}
-	for k, v := range p.meta {
-		m[k] = v
-	}
-	return m
+	return p.meta.Values()
 }
 
 func (p *proc) Consume(fn interface{}) error {
 	cfn := makeConsumerFunc(fn)
-	return p.consume(func(m message) error {
-		// Lock
-		if p.meta == nil {
-			p.meta = map[string]interface{}{}
-		}
-		for k, v := range m.meta {
-			p.meta[k] = v
-		}
+	err := p.consume(func(m message) error {
+		p.meta.SetAll(m.meta)
 		// enter consume
 		// defer exit consume
-		p.sendCalled = false
 		if err := cfn(m); err != nil {
 			return err
 		}
-		if p.sendCalled {
-			p.meta = map[string]interface{}{}
-		}
 		return nil
 	})
+	if err != nil && err != ErrBreak {
+		return err
+	}
+	return nil
 }
 
 func (p *proc) Send(v interface{}) error {
-	p.sendCalled = true
-
-	var meta map[string]interface{}
-	if p.meta != nil {
-		meta = map[string]interface{}{}
-		for k, v := range p.meta {
-			meta[k] = v
-		}
-	}
+	meta := p.meta.Values()
 
 	if w, ok := meta["_debug"].(io.Writer); ok {
-		fmt.Fprint(w, DebugProc(p, v))
+		DebugProc(w, p, v)
 	}
-	return p.send(message{
+
+	err := p.send(message{
 		value: v,
 		meta:  meta,
 	})
+
+	return err
 }
 
-func (p proc) Context() context.Context {
+func (p *proc) Context() context.Context {
 	return p.ctx
 }
 
+func (p *proc) Cancel() {
+	p.cancel()
+}
+
+func (p *proc) cancel() {
+	if p.consumer == nil {
+		return
+	}
+	p.consumer.cancel()
+}
+
 // the only two important funcs that could be discarded?
-func (p proc) consume(fn func(message) error) error {
+func (p *proc) consume(fn func(message) error) error {
 	if p.consumer == nil {
 		return fn(message{})
 	}
 	return p.consumer.consume(fn)
 }
 
-func (p proc) send(m message) error {
+func (p *proc) send(m message) error {
 	if p.sender == nil {
 		return nil
 	}

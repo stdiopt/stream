@@ -9,14 +9,14 @@ import (
 	"github.com/stdiopt/stream"
 )
 
-func FieldToMeta(f, k string) stream.Processor {
+func FieldToMeta(metaKey, field string) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
-			val, err := MetaField(p, v, f)
+			val, err := MetaFieldOf(p, v, field)
 			if err != nil {
 				return err
 			}
-			p.Set(k, val)
+			p.MetaSet(metaKey, val)
 			return p.Send(v)
 		})
 	})
@@ -28,7 +28,7 @@ func FieldToMeta(f, k string) stream.Processor {
 func Field(f string) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
-			val, err := MetaField(p, v, f)
+			val, err := MetaFieldOf(p, v, f)
 			if err != nil {
 				return err
 			}
@@ -54,7 +54,7 @@ func FieldMap(target interface{}, fm FMap) stream.Processor {
 					return fmt.Errorf("field not found %q in %T", f, target)
 				}
 
-				val, err := MetaField(p, v, f)
+				val, err := MetaFieldOf(p, v, f)
 				if err != nil {
 					return err
 				}
@@ -66,14 +66,14 @@ func FieldMap(target interface{}, fm FMap) stream.Processor {
 }
 
 func FieldOf(v interface{}, p string) (interface{}, error) {
-	return MetaField(nil, v, p)
+	return MetaFieldOf(nil, v, p)
 }
 
 // MetaField returns a field of the value v by walking through the separators
 // - on a struct it will walk through the struct Fields
 // - on a map[string]interface{} it will walk through map
 // - on a slice it's possible to have Field1.0.Field2
-func MetaField(p stream.Proc, v interface{}, s string) (interface{}, error) {
+func MetaFieldOf(p stream.Proc, v interface{}, s string) (interface{}, error) {
 	if s == "" || s == "." {
 		return v, nil
 	}
@@ -82,7 +82,7 @@ func MetaField(p stream.Proc, v interface{}, s string) (interface{}, error) {
 	var cur reflect.Value
 	if p != nil && pp[0][0] == '#' {
 		k := pp[0][1:]
-		v = p.Value(k)
+		v = p.MetaValue(k)
 	}
 	cur = reflect.Indirect(reflect.ValueOf(v))
 	for _, k := range pp {

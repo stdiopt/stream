@@ -1,6 +1,7 @@
 package strmio
 
 import (
+	"errors"
 	"io"
 
 	"github.com/stdiopt/stream"
@@ -81,20 +82,75 @@ func Writer(w io.Writer) stream.Processor {
 
 type ReadErrorCloser interface {
 	Read([]byte) (int, error)
+	Close() error
 	CloseWithError(error) error
 }
 
 func AsReader(p stream.Proc) ReadErrorCloser {
 	pr, pw := io.Pipe()
 	go func() {
-		err := p.Consume(func(b []byte) error {
-			if _, err := pw.Write(b); err != nil {
-				pw.CloseWithError(err)
-				return err
-			}
-			return nil
-		})
-		pw.CloseWithError(err) // nolint: errcheck
+		pw.CloseWithError(p.Consume(func(b []byte) error {
+			_, err := pw.Write(b)
+			return err
+		}))
 	}()
 	return pr
+}
+
+type (
+	pipeWriter = io.PipeWriter
+	pipeReader = io.PipeReader
+)
+
+var ErrClosed = errors.New("closed")
+
+type ProcWriter struct {
+	proc stream.Proc
+	done chan struct{}
+	p    stream.Proc
+	*pipeWriter
+}
+
+func (p ProcWriter) Close() error {
+	if err := p.pipeWriter.Close(); err != nil {
+		return err
+	}
+	<-p.done
+	return nil
+}
+
+func (p ProcWriter) CloseWithError(err error) error {
+	if err := p.pipeWriter.CloseWithError(err); err != nil {
+		return err
+	}
+	<-p.done
+	return nil
+}
+
+func AsWriter(p stream.Proc) *ProcWriter {
+	done := make(chan struct{})
+	pr, pw := io.Pipe()
+	go func() {
+		defer close(done)
+		buf := make([]byte, 4096)
+		for {
+			n, err := pr.Read(buf)
+			/*if err == io.EOF {
+				return
+			}*/if err != nil {
+				pr.CloseWithError(err)
+				return
+			}
+			sbuf := append([]byte{}, buf[:n]...)
+			if err := p.Send(sbuf); err != nil {
+				pr.CloseWithError(err)
+				return
+			}
+		}
+	}()
+	return &ProcWriter{
+		proc:       p,
+		done:       done,
+		pipeWriter: pw,
+	}
 }

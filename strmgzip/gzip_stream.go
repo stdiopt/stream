@@ -5,123 +5,49 @@ import (
 	"io"
 
 	"github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmio"
 )
-
-// Create something that automate the byte proc and put it in io.Reader
-
-/*func ByteOTransform(p stream.Proc, trans func(io.Writer) io.Writer) error {
-	ctx := p.Context()
-	meta := stream.Meta{}
-
-	pr, pw := io.Pipe()
-	go func() {
-		w := trans(pw)
-		pw.CloseWithError(p.Consume(func(ctx context.Context, buf []byte) error {
-			meta.Merge(stream.MetaFromContext(ctx))
-			if _, err := w.Write(buf); err != nil {
-				return err
-			}
-			if f, ok := w.(interface{ Flush() error }); ok {
-				return f.Flush()
-			}
-			return nil
-		}))
-	}()
-
-	buf := make([]byte, 4096)
-	for {
-		n, err := pr.Read(buf)
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			pr.CloseWithError(err)
-			return err
-		}
-
-		ctx = stream.ContextWithMeta(ctx, meta)
-		meta = stream.Meta{}
-
-		sbuf := append([]byte{}, buf[:n]...)
-		if err := p.Send(ctx, sbuf); err != nil {
-			pw.CloseWithError(err)
-			return err
-		}
-	}
-	return nil
-}*/
 
 // Provide a way to send a Writer and still send Meta
 func Writer(lvl int) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		pr, pw := io.Pipe()
-		go func() {
-			w, err := gzip.NewWriterLevel(pw, lvl)
-			if err != nil {
-				pw.CloseWithError(err)
-				return
-			}
-			pw.CloseWithError(p.Consume(func(buf []byte) error {
-				if _, err := w.Write(buf); err != nil {
-					return err
-				}
-				return w.Flush()
-			}))
-		}()
+		wr := strmio.AsWriter(p)
 
-		buf := make([]byte, 4096)
-		for {
-			n, err := pr.Read(buf)
-			if err == io.EOF {
-				break
-			}
-
-			if err != nil {
-				pr.CloseWithError(err)
-				return err
-			}
-
-			sbuf := append([]byte{}, buf[:n]...)
-			if err := p.Send(sbuf); err != nil {
-				pw.CloseWithError(err)
-				return err
-			}
+		w, err := gzip.NewWriterLevel(wr, lvl)
+		if err != nil {
+			wr.CloseWithError(err)
+			return err
 		}
-		return nil
+		defer func() {
+			w.Flush()
+			w.Close()
+			wr.Close()
+		}()
+		return p.Consume(func(buf []byte) error {
+			if _, err := w.Write(buf); err != nil {
+				return err
+			}
+			return nil
+		})
 	})
 }
 
+// TODO fix this
 func Reader() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
-		pr, pw := io.Pipe()
-		go func() {
-			pw.CloseWithError(p.Consume(func(buf []byte) error {
-				_, err := pw.Write(buf)
-				return err
-			}))
-		}()
-
-		rd, err := gzip.NewReader(pr)
+		rd := strmio.AsReader(p)
+		gr, err := gzip.NewReader(rd)
 		if err != nil {
-			return pr.CloseWithError(err)
+			return err
 		}
-		defer rd.Close()
-		buf := make([]byte, 4096)
-		for {
-			n, err := rd.Read(buf)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return pr.CloseWithError(err)
-			}
 
-			sbuf := append([]byte{}, buf[:n]...)
-			if err := p.Send(sbuf); err != nil {
-				return pr.CloseWithError(err)
+		wr := strmio.AsWriter(p)
+		defer wr.Close()
+		for {
+			_, err := io.Copy(wr, gr)
+			if err != nil {
+				return err
 			}
 		}
-		return nil
 	})
 }

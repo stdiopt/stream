@@ -12,15 +12,17 @@ type message struct {
 
 // Chan wraps a channel and a context for cancellation awareness.
 type Chan struct {
-	ctx context.Context
-	ch  chan message
+	ctx  context.Context
+	ch   chan message
+	done chan struct{} // we can close an individual channel
 }
 
 // newChan returns a Chan based on context with specific buffer size.
 func newChan(ctx context.Context, buffer int) Chan {
 	return Chan{
-		ctx: ctx,
-		ch:  make(chan message, buffer),
+		ctx:  ctx,
+		ch:   make(chan message, buffer),
+		done: make(chan struct{}),
 	}
 }
 
@@ -30,6 +32,8 @@ func (c Chan) send(m message) error {
 	select {
 	case <-c.ctx.Done():
 		return c.ctx.Err()
+	case <-c.done:
+		return ErrBreak
 	case c.ch <- m:
 		return nil
 	}
@@ -44,6 +48,8 @@ func (c Chan) consume(fn func(message) error) error {
 		select {
 		case <-c.ctx.Done():
 			return c.ctx.Err()
+		case <-c.done:
+			return nil
 		case m, ok := <-c.ch:
 			if !ok {
 				return nil
@@ -53,6 +59,10 @@ func (c Chan) consume(fn func(message) error) error {
 			}
 		}
 	}
+}
+
+func (c Chan) cancel() {
+	close(c.done)
 }
 
 // Close closes the channel.

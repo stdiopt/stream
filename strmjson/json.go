@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmio"
 )
 
 // JSONDecode parses the []byte input as json and send the object
@@ -26,7 +27,32 @@ func Decode(v interface{}) stream.Processor {
 	typ := reflect.Indirect(reflect.ValueOf(v)).Type()
 
 	return stream.Func(func(p stream.Proc) error {
-		pr, pw := io.Pipe()
+		rd := strmio.AsReader(p)
+		dec := json.NewDecoder(rd)
+		for {
+			val := reflect.New(typ)
+			err := dec.Decode(val.Interface())
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				rd.CloseWithError(err)
+				return err
+			}
+
+			if vv, ok := val.Interface().(*interface{}); ok {
+				v = *vv
+			} else {
+				v = val.Elem().Interface()
+			}
+
+			if err := p.Send(v); err != nil {
+				rd.CloseWithError(err)
+				return err
+			}
+		}
+		return nil
+		/*pr, pw := io.Pipe()
 		dec := json.NewDecoder(pr)
 		go func() {
 			pw.CloseWithError(p.Consume(func(buf []byte) error {
@@ -40,9 +66,9 @@ func Decode(v interface{}) stream.Processor {
 		}()
 
 		for {
-			v := reflect.New(typ).Interface()
+			val := reflect.New(typ)
 
-			err := dec.Decode(v)
+			err := dec.Decode(val.Interface())
 			if err == io.EOF {
 				break
 			}
@@ -51,8 +77,10 @@ func Decode(v interface{}) stream.Processor {
 				return err
 			}
 
-			if vv, ok := v.(*interface{}); ok {
+			if vv, ok := val.Interface().(*interface{}); ok {
 				v = *vv
+			} else {
+				v = val.Elem().Interface()
 			}
 
 			if err := p.Send(v); err != nil {
@@ -60,11 +88,23 @@ func Decode(v interface{}) stream.Processor {
 				return err
 			}
 		}
-		return nil
+		return nil*/
 	})
 }
 
 func Encode() stream.Processor {
+	return stream.Func(func(p stream.Proc) error {
+		wr := strmio.AsWriter(p)
+		defer wr.Close()
+		enc := json.NewEncoder(wr)
+
+		return p.Consume(func(v interface{}) error {
+			return enc.Encode(v)
+		})
+	})
+}
+
+/*func Encode() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		pr, pw := io.Pipe()
 		go func() {
@@ -76,9 +116,14 @@ func Encode() stream.Processor {
 
 		buf := make([]byte, 4096)
 		for {
+			select {
+			case <-p.Context().Done():
+				return p.Context().Err()
+			default:
+			}
 			n, err := pr.Read(buf)
 			if err == io.EOF {
-				break
+				continue
 			}
 			if err != nil {
 				return pr.CloseWithError(err)
@@ -90,9 +135,8 @@ func Encode() stream.Processor {
 				return err
 			}
 		}
-		return nil
 	})
-}
+}*/
 
 func Unmarshal(v interface{}) stream.Processor {
 	if v == nil {
