@@ -3,18 +3,18 @@ package stream
 
 import (
 	"context"
-
-	"github.com/bwmarrin/snowflake"
-	"golang.org/x/sync/errgroup"
 )
 
-var flake *snowflake.Node = func() *snowflake.Node {
-	r, err := snowflake.NewNode(1)
-	if err != nil {
-		panic(err)
-	}
-	return r
-}()
+type Chan interface {
+	consumer
+	sender
+	close()
+	cancel()
+}
+
+func createChan(ctx context.Context, n int) Chan {
+	return newProcChan(ctx, n)
+}
 
 // Processor to build a processor use stream.Func
 type Processor interface {
@@ -31,23 +31,23 @@ func Line(pfns ...Processor) Processor {
 	}
 	return procFunc(func(p *proc) error {
 		ctx := p.Context()
-		eg, ctx := errgroup.WithContext(ctx)
+		eg, ctx := pGroupWithContext(ctx)
 		last := consumer(p) // consumer should be nil
 		for i, fn := range pfns {
 			l, fn := last, fn
 			if i == len(pfns)-1 {
 				// Last one will consume last to P
 				eg.Go(func() error {
-					defer l.cancel()
+					// defer l.cancel()
 					return fn.run(newProc(ctx, l, p))
 				})
 				break
 			}
-			ch := newChan(ctx, 0)
+			ch := createChan(ctx, 0)
 			// Consuming from last and sending to channel
 			eg.Go(func() error {
 				defer l.cancel()
-				defer ch.Close()
+				defer ch.close()
 				return fn.run(newProc(ctx, l, ch))
 			})
 			last = ch
@@ -59,10 +59,10 @@ func Line(pfns ...Processor) Processor {
 // Broadcast consumes and passes the consumed message to all pfs ProcFuncs.
 func Broadcast(pfns ...Processor) Processor {
 	return procFunc(func(p *proc) error {
-		eg, ctx := errgroup.WithContext(p.Context())
+		eg, ctx := pGroupWithContext(p.Context())
 		chs := make([]Chan, len(pfns))
 		for i, fn := range pfns {
-			ch := newChan(ctx, 0)
+			ch := createChan(ctx, 0)
 			fn := fn
 			eg.Go(func() error {
 				return fn.run(newProc(ctx, ch, p))
@@ -72,7 +72,7 @@ func Broadcast(pfns ...Processor) Processor {
 		eg.Go(func() error {
 			defer func() {
 				for _, ch := range chs {
-					ch.Close()
+					ch.close()
 				}
 			}()
 			return p.consume(func(m message) error {
@@ -96,7 +96,7 @@ func Workers(n int, pfns ...Processor) Processor {
 	}
 	return procFunc(func(p *proc) error {
 		ctx := p.Context()
-		eg, ctx := errgroup.WithContext(ctx)
+		eg, ctx := pGroupWithContext(ctx)
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
 				return pfn.run(newProc(ctx, p, p))
@@ -110,10 +110,10 @@ func Workers(n int, pfns ...Processor) Processor {
 func Buffer(n int, pfns ...Processor) Processor {
 	pfn := Line(pfns...)
 	return procFunc(func(p *proc) error {
-		eg, ctx := errgroup.WithContext(p.Context())
-		ch := newChan(ctx, n)
+		eg, ctx := pGroupWithContext(p.Context())
+		ch := createChan(ctx, n)
 		eg.Go(func() error {
-			defer ch.Close()
+			defer ch.close()
 			return p.consume(ch.send)
 		})
 		eg.Go(func() error {

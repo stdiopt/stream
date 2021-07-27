@@ -57,23 +57,19 @@ func FileWrite(path string) stream.Processor {
 	})
 }
 
-// ReadFile consume a filepath as a string and produces byte chunks from the file
-func ReadFile() stream.Processor {
+// FileRead consume a filepath as a string and produces byte chunks from the file
+func FileRead() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		w := AsWriter(p)
-		return p.Consume(func(path string) error {
+		err := p.Consume(func(path string) error {
 			f, err := os.Open(path)
 			if err != nil {
 				return err
 			}
 			_, err = io.Copy(w, f)
-			if err == io.EOF {
-				return nil
-			}
-			if err != nil {
-				w.CloseWithError(err)
-			}
 			return err
 		})
+		w.CloseWithError(err)
+		return err
 	})
 }

@@ -9,7 +9,7 @@ import (
 )
 
 // Provide a way to send a Writer and still send Meta
-func Writer(lvl int) stream.Processor {
+func Zip(lvl int) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		wr := strmio.AsWriter(p)
 
@@ -32,11 +32,13 @@ func Writer(lvl int) stream.Processor {
 	})
 }
 
-// TODO fix this
-func Reader() stream.Processor {
+func Unzip() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
 		gr, err := gzip.NewReader(rd)
+		if err == io.EOF {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -45,6 +47,9 @@ func Reader() stream.Processor {
 		defer wr.Close()
 		for {
 			_, err := io.Copy(wr, gr)
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				return nil
+			}
 			if err != nil {
 				return err
 			}

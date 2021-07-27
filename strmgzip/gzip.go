@@ -7,7 +7,8 @@ import (
 	"github.com/stdiopt/stream"
 )
 
-func Zip(lvl int) stream.Processor {
+// Full zip the thing
+func ZipX(lvl int) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(buf []byte) error {
 			pr, pw := io.Pipe()
@@ -35,7 +36,8 @@ func Zip(lvl int) stream.Processor {
 	})
 }
 
-func Unzip() stream.Processor {
+// UnzipX full unzip thing
+func UnzipX() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(buf []byte) error {
 			pr, pw := io.Pipe()

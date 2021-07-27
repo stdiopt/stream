@@ -131,13 +131,11 @@ func AsWriter(p stream.Proc) *ProcWriter {
 	done := make(chan struct{})
 	pr, pw := io.Pipe()
 	go func() {
-		defer close(done)
-		buf := make([]byte, 4096)
+		close(done)
+		buf := make([]byte, 4096*4)
 		for {
 			n, err := pr.Read(buf)
-			/*if err == io.EOF {
-				return
-			}*/if err != nil {
+			if err != nil {
 				pr.CloseWithError(err)
 				return
 			}

@@ -32,7 +32,7 @@ func Decode(v interface{}) stream.Processor {
 		for {
 			val := reflect.New(typ)
 			err := dec.Decode(val.Interface())
-			if err == io.EOF {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				break
 			}
 			if err != nil {

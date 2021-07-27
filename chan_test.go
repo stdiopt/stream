@@ -12,16 +12,16 @@ func TestConsumex(t *testing.T) {
 	testError := errors.New("test")
 	type testCase struct {
 		ctx      context.Context
-		fn       func(Chan, *[]interface{}) consumerFunc
+		fn       func(*procChan, *[]interface{}) consumerFunc
 		wantData []interface{}
 		wantErr  error
 	}
 
 	test := func(tt testCase) func(t *testing.T) {
 		return func(t *testing.T) {
-			ch := newChan(tt.ctx, 0)
+			ch := newProcChan(tt.ctx, 0)
 			go func() {
-				defer ch.Close()
+				defer ch.close()
 				for i := 0; i < 4; i++ {
 					ch.send(message{value: i}) // nolint: errcheck
 				}
@@ -48,7 +48,7 @@ func TestConsumex(t *testing.T) {
 
 	t.Run("consume with no error", test(testCase{
 		ctx: context.Background(),
-		fn: func(c Chan, out *[]interface{}) consumerFunc {
+		fn: func(c *procChan, out *[]interface{}) consumerFunc {
 			return func(m message) error {
 				*out = append(*out, m.value)
 				return nil
@@ -59,7 +59,7 @@ func TestConsumex(t *testing.T) {
 	}))
 	t.Run("consume should return testError", test(testCase{
 		ctx: context.Background(),
-		fn: func(c Chan, out *[]interface{}) consumerFunc {
+		fn: func(c *procChan, out *[]interface{}) consumerFunc {
 			return func(m message) error {
 				*out = append(*out, m.value)
 				return testError
@@ -74,7 +74,7 @@ func TestConsumex(t *testing.T) {
 			cancel()
 			return ctx
 		}(),
-		fn: func(c Chan, out *[]interface{}) consumerFunc {
+		fn: func(c *procChan, out *[]interface{}) consumerFunc {
 			return func(m message) error {
 				*out = append(*out, m.value)
 				return nil
@@ -99,7 +99,7 @@ func TestSend(t *testing.T) {
 			consumed := []interface{}{}
 			wg := sync.WaitGroup{}
 
-			ch := newChan(tt.ctx, 0)
+			ch := newProcChan(tt.ctx, 0)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -116,7 +116,7 @@ func TestSend(t *testing.T) {
 					break
 				}
 			}
-			ch.Close()
+			ch.close()
 			wg.Wait()
 
 			if want := len(tt.wantData); len(consumed) != want {

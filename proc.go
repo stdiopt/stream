@@ -4,17 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
 	"reflect"
-	"runtime"
 
 	"github.com/bwmarrin/snowflake"
 )
 
-// Proc is the interface used by ProcFuncs to Consume and send data to the next
-// func.
-type Proc interface {
-	Consume(interface{}) error
+type P interface {
+	Name() string
 	Send(interface{}) error
 
 	Context() context.Context
@@ -24,41 +20,31 @@ type Proc interface {
 	Meta() map[string]interface{}
 }
 
-type procFunc func(*proc) error
-
-func (fn procFunc) run(p *proc) error { return fn(p) }
-
-var dbgCtxKey = struct{ s string }{"dbg"}
-
-func ContextWithDebug(ctx context.Context, w io.Writer) context.Context {
-	return context.WithValue(ctx, dbgCtxKey, w)
+// Proc is the interface used by ProcFuncs to Consume and send data to the next
+// func.
+type Proc interface {
+	P
+	Consume(interface{}) error
 }
 
+// message is an internal message type that also passes ctx
+type message struct {
+	value interface{}
+	meta  map[string]interface{}
+}
+
+type procFunc func(*proc) error
+
+func (fn procFunc) run(p *proc) (err error) { return fn(p) }
+
 func Func(fn func(Proc) error) Processor {
-	// information to be attached in the dbg process
-	// Caller is the function name that calls the NewProc
-	var name string
-	{
-		pc, _, _, _ := runtime.Caller(1)
-		fi := runtime.FuncForPC(pc)
-		name = fi.Name()
-		_, name = filepath.Split(name)
-	}
-
-	// The function that calls the builder func
-	_, f, l, _ := runtime.Caller(2)
-	_, file := filepath.Split(f)
-
-	dname := fmt.Sprintf("%s %s:%d", name, file, l)
-
+	pname := procName()
 	return procFunc(func(p *proc) error {
-		p.dname = dname
+		p.name = pname
 		if err := fn(p); err != nil {
 			return strmError{
-				name: name,
-				file: file,
-				line: l,
-				err:  err,
+				pname: pname,
+				err:   err,
 			}
 		}
 		return nil
@@ -66,10 +52,12 @@ func Func(fn func(Proc) error) Processor {
 }
 
 func F(fn interface{}) Processor {
+	pname := procName()
 	fnVal := reflect.ValueOf(fn)
-	return Func(func(p Proc) error {
-		procVal := reflect.ValueOf(p)
-		return p.Consume(func(v interface{}) error {
+	return procFunc(func(p *proc) error {
+		p.name = pname
+		procVal := reflect.ValueOf(P(p))
+		err := p.Consume(func(v interface{}) error {
 			var arg reflect.Value
 			if v == nil {
 				arg = reflect.ValueOf(&v).Elem()
@@ -82,6 +70,10 @@ func F(fn interface{}) Processor {
 			}
 			return nil
 		})
+		if err != nil {
+			return strmError{pname: pname, err: err}
+		}
+		return nil
 	})
 }
 
@@ -103,7 +95,7 @@ type proc struct {
 	consumer
 	sender
 
-	dname string
+	name string
 	// State to send to next Processor on message
 	meta meta
 }
@@ -111,11 +103,14 @@ type proc struct {
 // newProc makes a Proc based on a Consumer and Sender.
 func newProc(ctx context.Context, c consumer, s sender) *proc {
 	return &proc{
-		id:       flake.Generate(),
 		ctx:      ctx,
 		consumer: c,
 		sender:   s,
 	}
+}
+
+func (p *proc) Name() string {
+	return p.name
 }
 
 func (p *proc) MetaSet(k string, v interface{}) {
@@ -178,20 +173,32 @@ func (p *proc) cancel() {
 }
 
 // the only two important funcs that could be discarded?
-func (p *proc) consume(fn func(message) error) error {
+func (p *proc) consume(fn func(message) error) (err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("consume panic: %v", p)
+		}
+	}()
 	if p.consumer == nil {
 		return fn(message{})
 	}
+
 	return p.consumer.consume(fn)
 }
 
-func (p *proc) send(m message) error {
+func (p *proc) send(m message) (err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("send panic: %v", p)
+		}
+	}()
 	if p.sender == nil {
 		return nil
 	}
 	return p.sender.send(m)
 }
 
+// makeConsumerFunc returns a consumerFunc
 // Is a bit slower but some what wrappers typed messages.
 func makeConsumerFunc(fn interface{}) consumerFunc {
 	switch fn := fn.(type) {

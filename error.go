@@ -8,10 +8,8 @@ import (
 var ErrBreak = errors.New("break")
 
 type strmError struct {
-	name string
-	file string
-	line int
-	err  error
+	pname string
+	err   error
 }
 
 func (e strmError) Unwrap() error {
@@ -19,10 +17,5 @@ func (e strmError) Unwrap() error {
 }
 
 func (e strmError) Error() string {
-	return fmt.Sprintf("%s:%d [%s] %v",
-		e.file,
-		e.line,
-		e.name,
-		e.err,
-	)
+	return fmt.Sprintf("%s %v", e.pname, e.err)
 }
