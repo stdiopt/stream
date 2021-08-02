@@ -8,7 +8,7 @@ import (
 // procChan wraps a channel and a context for cancellation awareness.
 type procChan struct {
 	ctx        context.Context
-	ch         chan message
+	ch         chan Message
 	done       chan struct{} // we can close an individual channel
 	cancelOnce sync.Once
 }
@@ -17,14 +17,14 @@ type procChan struct {
 func newProcChan(ctx context.Context, buffer int) *procChan {
 	return &procChan{
 		ctx:  ctx,
-		ch:   make(chan message, buffer),
+		ch:   make(chan Message, buffer),
 		done: make(chan struct{}),
 	}
 }
 
 // Send sends v to the underlying channel if context is cancelled it will return
 // the underlying ctx.Err()
-func (c procChan) send(m message) error {
+func (c procChan) send(m Message) error {
 	select {
 	case <-c.ctx.Done():
 		return c.ctx.Err()
@@ -39,7 +39,7 @@ func (c procChan) send(m message) error {
 // block until either context is cancelled, channel is closed or ConsumerFunc
 // error
 // is not nil
-func (c procChan) consume(fn func(message) error) error {
+func (c procChan) consume(fn func(Message) error) error {
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -58,7 +58,8 @@ func (c procChan) consume(fn func(message) error) error {
 }
 
 func (c *procChan) cancel() {
-	c.cancelOnce.Do(func() { close(c.done) })
+	// c.cancelOnce.Do(func() { close(c.done) })
+	close(c.done)
 }
 
 // Close closes the channel.

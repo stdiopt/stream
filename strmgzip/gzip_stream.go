@@ -35,6 +35,7 @@ func Zip(lvl int) stream.Processor {
 func Unzip() stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
+		defer rd.Close()
 		gr, err := gzip.NewReader(rd)
 		if err == io.EOF {
 			return nil
@@ -45,14 +46,16 @@ func Unzip() stream.Processor {
 
 		wr := strmio.AsWriter(p)
 		defer wr.Close()
-		for {
-			_, err := io.Copy(wr, gr)
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
+		// TODO: verify if we really need the loop, since we will receive until EOF regardless the underlying data?
+		// for {
+		_, err = io.Copy(wr, gr)
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return nil
 		}
+		if err != nil {
+			return err
+		}
+		//}
+		return nil
 	})
 }

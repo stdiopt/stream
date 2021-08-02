@@ -44,8 +44,6 @@ func Aggregate(opt ...AggOptFunc) stream.Processor {
 		groupRef := map[interface{}]*Group{}
 		group := []*Group{}
 
-		// TODO: meta here
-
 		err := p.Consume(func(v interface{}) error {
 			if v == streamu.End {
 				return p.Send(group)

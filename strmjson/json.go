@@ -28,6 +28,7 @@ func Decode(v interface{}) stream.Processor {
 
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
+		defer rd.Close()
 		dec := json.NewDecoder(rd)
 		for {
 			val := reflect.New(typ)
@@ -52,43 +53,6 @@ func Decode(v interface{}) stream.Processor {
 			}
 		}
 		return nil
-		/*pr, pw := io.Pipe()
-		dec := json.NewDecoder(pr)
-		go func() {
-			pw.CloseWithError(p.Consume(func(buf []byte) error {
-				_, err := pw.Write(buf)
-				if err != nil {
-					pw.CloseWithError(err)
-					return err
-				}
-				return err
-			}))
-		}()
-
-		for {
-			val := reflect.New(typ)
-
-			err := dec.Decode(val.Interface())
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				pr.CloseWithError(err)
-				return err
-			}
-
-			if vv, ok := val.Interface().(*interface{}); ok {
-				v = *vv
-			} else {
-				v = val.Elem().Interface()
-			}
-
-			if err := p.Send(v); err != nil {
-				pr.CloseWithError(err)
-				return err
-			}
-		}
-		return nil*/
 	})
 }
 

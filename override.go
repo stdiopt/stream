@@ -1,7 +1,11 @@
 package stream
 
-/*type override struct {
+import "log"
+
+type override struct {
 	Proc
+	sendFunc    func(v interface{}) error
+	consumeFunc func(v interface{}) error
 }
 
 func (p override) Send(v interface{}) error {
@@ -11,8 +15,8 @@ func (p override) Send(v interface{}) error {
 
 func (p override) Consume(fn interface{}) error {
 	f := makeConsumerFunc(fn)
-	return p.Proc.Consume(func(v interface{}) error {
+	return p.Proc.Consume(func(v Message) error {
 		log.Println("Received:", v)
 		return f(v)
 	})
-}*/
+}

@@ -46,7 +46,7 @@ func Line(pfns ...Processor) Processor {
 			ch := createChan(ctx, 0)
 			// Consuming from last and sending to channel
 			eg.Go(func() error {
-				defer l.cancel()
+				// defer l.cancel() // TODO: Causes issues with workers
 				defer ch.close()
 				return fn.run(newProc(ctx, l, ch))
 			})
@@ -75,7 +75,7 @@ func Broadcast(pfns ...Processor) Processor {
 					ch.close()
 				}
 			}()
-			return p.consume(func(m message) error {
+			return p.consume(func(m Message) error {
 				for _, ch := range chs {
 					if err := ch.send(m); err != nil {
 						return err

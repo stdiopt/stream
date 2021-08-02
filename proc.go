@@ -27,10 +27,10 @@ type Proc interface {
 	Consume(interface{}) error
 }
 
-// message is an internal message type that also passes ctx
-type message struct {
-	value interface{}
-	meta  map[string]interface{}
+// Message is an internal Message type that also passes ctx
+type Message struct {
+	Value interface{}
+	Meta  map[string]interface{}
 }
 
 type procFunc func(*proc) error
@@ -77,7 +77,7 @@ func F(fn interface{}) Processor {
 	})
 }
 
-type consumerFunc = func(message) error
+type consumerFunc = func(Message) error
 
 type consumer interface {
 	consume(consumerFunc) error
@@ -85,7 +85,7 @@ type consumer interface {
 }
 
 type sender interface {
-	send(message) error
+	send(Message) error
 }
 
 // proc implements the Proc interface
@@ -125,10 +125,11 @@ func (p *proc) Meta() map[string]interface{} {
 	return p.meta.Values()
 }
 
+// this can be overriden we should put here?
 func (p *proc) Consume(fn interface{}) error {
 	cfn := makeConsumerFunc(fn)
-	err := p.consume(func(m message) error {
-		p.meta.SetAll(m.meta)
+	err := p.consume(func(m Message) error {
+		p.meta.SetAll(m.Meta)
 		// enter consume
 		// defer exit consume
 		if err := cfn(m); err != nil {
@@ -149,9 +150,9 @@ func (p *proc) Send(v interface{}) error {
 		DebugProc(w, p, v)
 	}
 
-	err := p.send(message{
-		value: v,
-		meta:  meta,
+	err := p.send(Message{
+		Value: v,
+		Meta:  meta,
 	})
 
 	return err
@@ -173,20 +174,20 @@ func (p *proc) cancel() {
 }
 
 // the only two important funcs that could be discarded?
-func (p *proc) consume(fn func(message) error) (err error) {
+func (p *proc) consume(fn func(Message) error) (err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			err = fmt.Errorf("consume panic: %v", p)
 		}
 	}()
 	if p.consumer == nil {
-		return fn(message{})
+		return fn(Message{})
 	}
 
 	return p.consumer.consume(fn)
 }
 
-func (p *proc) send(m message) (err error) {
+func (p *proc) send(m Message) (err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			err = fmt.Errorf("send panic: %v", p)
@@ -205,7 +206,7 @@ func makeConsumerFunc(fn interface{}) consumerFunc {
 	case consumerFunc:
 		return fn
 	case func(interface{}) error:
-		return func(m message) error { return fn(m.value) }
+		return func(m Message) error { return fn(m.Value) }
 	}
 
 	// Any other param types
@@ -215,8 +216,8 @@ func makeConsumerFunc(fn interface{}) consumerFunc {
 		panic("should have 1 params")
 	}
 	args := make([]reflect.Value, 1)
-	return func(v message) error {
-		args[0] = reflect.ValueOf(v.value) // will panic if wrong type passed
+	return func(v Message) error {
+		args[0] = reflect.ValueOf(v.Value) // will panic if wrong type passed
 		ret := fnVal.Call(args)
 		if err, ok := ret[0].Interface().(error); ok && err != nil {
 			return err

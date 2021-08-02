@@ -27,7 +27,8 @@ func execInsertQry(db *sql.DB, qry string, nparams int, batchParams ...interface
 		} else {
 			qryBuf.WriteString(",")
 		}
-		fmt.Fprintf(qryBuf, "$%d", i+1)
+		fmt.Fprintf(qryBuf, "$%d", i+1) // postgres
+		// fmt.Fprintf(qryBuf, "?") // mysql
 	}
 	qryBuf.WriteString(")")
 

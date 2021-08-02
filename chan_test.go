@@ -23,7 +23,7 @@ func TestConsumex(t *testing.T) {
 			go func() {
 				defer ch.close()
 				for i := 0; i < 4; i++ {
-					ch.send(message{value: i}) // nolint: errcheck
+					ch.send(Message{Value: i}) // nolint: errcheck
 				}
 			}()
 
@@ -49,8 +49,8 @@ func TestConsumex(t *testing.T) {
 	t.Run("consume with no error", test(testCase{
 		ctx: context.Background(),
 		fn: func(c *procChan, out *[]interface{}) consumerFunc {
-			return func(m message) error {
-				*out = append(*out, m.value)
+			return func(m Message) error {
+				*out = append(*out, m.Value)
 				return nil
 			}
 		},
@@ -60,8 +60,8 @@ func TestConsumex(t *testing.T) {
 	t.Run("consume should return testError", test(testCase{
 		ctx: context.Background(),
 		fn: func(c *procChan, out *[]interface{}) consumerFunc {
-			return func(m message) error {
-				*out = append(*out, m.value)
+			return func(m Message) error {
+				*out = append(*out, m.Value)
 				return testError
 			}
 		},
@@ -75,8 +75,8 @@ func TestConsumex(t *testing.T) {
 			return ctx
 		}(),
 		fn: func(c *procChan, out *[]interface{}) consumerFunc {
-			return func(m message) error {
-				*out = append(*out, m.value)
+			return func(m Message) error {
+				*out = append(*out, m.Value)
 				return nil
 			}
 		},
@@ -103,14 +103,14 @@ func TestSend(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ch.consume(func(m message) error { // nolint: errcheck
-					consumed = append(consumed, m.value)
+				ch.consume(func(m Message) error { // nolint: errcheck
+					consumed = append(consumed, m.Value)
 					return tt.consumerErr
 				})
 			}()
 
 			for _, s := range tt.values {
-				err := ch.send(message{value: s})
+				err := ch.send(Message{Value: s})
 				if want := tt.wantErr; err != want {
 					t.Errorf("\nwant: %v\n got: %v\n", want, err)
 					break
