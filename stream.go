@@ -33,16 +33,16 @@ func Line(pfns ...Processor) Processor {
 		ctx := p.Context()
 		eg, ctx := pGroupWithContext(ctx)
 		last := consumer(p) // consumer should be nil
-		for i, fn := range pfns {
+		for _, fn := range pfns[:len(pfns)-1] {
 			l, fn := last, fn
-			if i == len(pfns)-1 {
+			/*if i == len(pfns)-1 {
 				// Last one will consume last to P
 				eg.Go(func() error {
 					// defer l.cancel()
 					return fn.run(newProc(ctx, l, p))
 				})
 				break
-			}
+			}*/
 			ch := createChan(ctx, 0)
 			// Consuming from last and sending to channel
 			eg.Go(func() error {
@@ -52,6 +52,10 @@ func Line(pfns ...Processor) Processor {
 			})
 			last = ch
 		}
+		fn := pfns[len(pfns)-1]
+		eg.Go(func() error {
+			return fn.run(newProc(ctx, last, p))
+		})
 		return eg.Wait()
 	})
 }
