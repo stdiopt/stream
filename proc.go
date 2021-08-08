@@ -80,12 +80,13 @@ func F(fn interface{}) Processor {
 type consumerFunc = func(Message) error
 
 type consumer interface {
-	consume(consumerFunc) error
+	consume(context.Context, consumerFunc) error
 	cancel()
 }
 
 type sender interface {
-	send(Message) error
+	send(context.Context, Message) error
+	close()
 }
 
 // proc implements the Proc interface
@@ -98,6 +99,10 @@ type proc struct {
 	name string
 	// State to send to next Processor on message
 	meta meta
+}
+
+func (p *proc) String() string {
+	return p.name
 }
 
 // newProc makes a Proc based on a Consumer and Sender.
@@ -128,14 +133,9 @@ func (p *proc) Meta() map[string]interface{} {
 // this can be overriden we should put here?
 func (p *proc) Consume(fn interface{}) error {
 	cfn := makeConsumerFunc(fn)
-	err := p.consume(func(m Message) error {
+	err := p.consume(p.ctx, func(m Message) error {
 		p.meta.SetAll(m.Meta)
-		// enter consume
-		// defer exit consume
-		if err := cfn(m); err != nil {
-			return err
-		}
-		return nil
+		return cfn(m)
 	})
 	if err != nil && err != ErrBreak {
 		return err
@@ -144,26 +144,49 @@ func (p *proc) Consume(fn interface{}) error {
 }
 
 func (p *proc) Send(v interface{}) error {
-	meta := p.meta.Values()
-
-	if w, ok := meta["_debug"].(io.Writer); ok {
-		DebugProc(w, p, v)
-	}
-
-	err := p.send(Message{
-		Value: v,
-		Meta:  meta,
-	})
-
-	return err
+	return p.send(p.ctx, Message{Value: v})
 }
 
 func (p *proc) Context() context.Context {
 	return p.ctx
 }
 
-func (p *proc) Cancel() {
-	p.cancel()
+// the only two important funcs that could be discarded?
+func (p *proc) consume(ctx context.Context, fn func(Message) error) (err error) {
+	defer func() {
+		meta := p.meta.Values()
+
+		if w, ok := meta["_debug"].(io.Writer); ok {
+			DebugProc(w, p, "closing")
+		}
+		if p := recover(); p != nil {
+			err = fmt.Errorf("consume panic: %v", p)
+		}
+	}()
+
+	if p.consumer == nil {
+		return fn(Message{})
+	}
+
+	return p.consumer.consume(ctx, fn)
+}
+
+func (p *proc) send(ctx context.Context, m Message) (err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("send panic: %v", p)
+		}
+	}()
+
+	meta := p.meta.Values()
+	if w, ok := meta["_debug"].(io.Writer); ok {
+		DebugProc(w, p, m.Value)
+	}
+
+	if p.sender == nil {
+		return nil
+	}
+	return p.sender.send(ctx, Message{Value: m.Value, Meta: meta})
 }
 
 func (p *proc) cancel() {
@@ -173,30 +196,11 @@ func (p *proc) cancel() {
 	p.consumer.cancel()
 }
 
-// the only two important funcs that could be discarded?
-func (p *proc) consume(fn func(Message) error) (err error) {
-	defer func() {
-		if p := recover(); p != nil {
-			err = fmt.Errorf("consume panic: %v", p)
-		}
-	}()
-	if p.consumer == nil {
-		return fn(Message{})
-	}
-
-	return p.consumer.consume(fn)
-}
-
-func (p *proc) send(m Message) (err error) {
-	defer func() {
-		if p := recover(); p != nil {
-			err = fmt.Errorf("send panic: %v", p)
-		}
-	}()
+func (p *proc) close() {
 	if p.sender == nil {
-		return nil
+		return
 	}
-	return p.sender.send(m)
+	p.sender.close()
 }
 
 // makeConsumerFunc returns a consumerFunc

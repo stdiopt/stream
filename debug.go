@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,27 +29,30 @@ func DebugProc(w io.Writer, p Proc, v interface{}) {
 	if p, ok := p.(*proc); ok {
 		name = p.name
 	}
-	fmt.Fprintf(w, "[\033[01;37m%s\033[0m] ", name)
-	fmt.Fprintf(w, "\033[01;33m%T\033[0m ", v)
-	fmt.Fprintf(w, "meta: \033[34m%v\033[0m\n\t", p.Meta())
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, "[\033[01;37m%s\033[0m] ", name)
+	fmt.Fprintf(buf, "\033[01;33m%T\033[0m ", v)
+	fmt.Fprintf(buf, "meta: \033[34m%v\033[0m\n\t", p.Meta())
 
 	switch v := v.(type) {
 	case string:
-		fmt.Fprint(w, v)
+		fmt.Fprint(buf, v)
 	case []byte: // force []byte
-		fmt.Fprint(w, v)
+		fmt.Fprint(buf, v)
 	default:
 		data, err := json.Marshal(v)
 		if err != nil {
-			fmt.Fprintf(w, "<json err>")
+			fmt.Fprintf(buf, "<json err>")
 			break
 		}
-		if _, err := w.Write(data); err != nil {
-			fmt.Fprintf(w, "<err>")
+		if _, err := buf.Write(data); err != nil {
+			fmt.Fprintf(buf, "<err>")
 			break
 		}
 	}
-	fmt.Fprint(w, "\n\n")
+	fmt.Fprint(buf, "\n\n")
+	fmt.Fprint(w, buf.String())
+	// io.Copy(w, buf)
 }
 
 func procName() string {

@@ -12,10 +12,6 @@ type Chan interface {
 	cancel()
 }
 
-func createChan(ctx context.Context, n int) Chan {
-	return newProcChan(ctx, n)
-}
-
 // Processor to build a processor use stream.Func
 type Processor interface {
 	run(*proc) error
@@ -24,7 +20,9 @@ type Processor interface {
 // Line will consume and pass a message sequentually on all ProcFuncs.
 func Line(pfns ...Processor) Processor {
 	if len(pfns) == 0 {
-		panic("no funcs")
+		return procFunc(func(p *proc) error {
+			return p.Consume(p.Send)
+		})
 	}
 	if len(pfns) == 1 {
 		return pfns[0]
@@ -35,18 +33,13 @@ func Line(pfns ...Processor) Processor {
 		last := consumer(p) // consumer should be nil
 		for _, fn := range pfns[:len(pfns)-1] {
 			l, fn := last, fn
-			/*if i == len(pfns)-1 {
-				// Last one will consume last to P
-				eg.Go(func() error {
-					// defer l.cancel()
-					return fn.run(newProc(ctx, l, p))
-				})
-				break
-			}*/
-			ch := createChan(ctx, 0)
+			ch := newProcChan(0)
+
 			// Consuming from last and sending to channel
 			eg.Go(func() error {
-				// defer l.cancel() // TODO: Causes issues with workers
+				if c, ok := l.(Chan); ok {
+					defer c.cancel()
+				}
 				defer ch.close()
 				return fn.run(newProc(ctx, l, ch))
 			})
@@ -54,19 +47,22 @@ func Line(pfns ...Processor) Processor {
 		}
 		fn := pfns[len(pfns)-1]
 		eg.Go(func() error {
-			return fn.run(newProc(ctx, last, p))
+			if c, ok := last.(Chan); ok {
+				defer c.cancel()
+			}
+			return fn.run(newProc(ctx, last, sender(p)))
 		})
 		return eg.Wait()
 	})
 }
 
-// Broadcast consumes and passes the consumed message to all pfs ProcFuncs.
-func Broadcast(pfns ...Processor) Processor {
+// Tee consumes and passes the consumed message to all pfs ProcFuncs.
+func Tee(pfns ...Processor) Processor {
 	return procFunc(func(p *proc) error {
 		eg, ctx := pGroupWithContext(p.Context())
 		chs := make([]Chan, len(pfns))
 		for i, fn := range pfns {
-			ch := createChan(ctx, 0)
+			ch := newProcChan(0)
 			fn := fn
 			eg.Go(func() error {
 				return fn.run(newProc(ctx, ch, p))
@@ -79,9 +75,9 @@ func Broadcast(pfns ...Processor) Processor {
 					ch.close()
 				}
 			}()
-			return p.consume(func(m Message) error {
+			return p.consume(ctx, func(m Message) error {
 				for _, ch := range chs {
-					if err := ch.send(m); err != nil {
+					if err := ch.send(ctx, m); err != nil {
 						return err
 					}
 				}
@@ -115,12 +111,14 @@ func Buffer(n int, pfns ...Processor) Processor {
 	pfn := Line(pfns...)
 	return procFunc(func(p *proc) error {
 		eg, ctx := pGroupWithContext(p.Context())
-		ch := createChan(ctx, n)
+		ch := newProcChan(n)
 		eg.Go(func() error {
 			defer ch.close()
-			return p.consume(ch.send)
+			np := newProc(ctx, p, ch)
+			return np.Consume(np.Send)
 		})
 		eg.Go(func() error {
+			defer ch.cancel()
 			return pfn.run(newProc(ctx, ch, p))
 		})
 		return eg.Wait()

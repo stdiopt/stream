@@ -16,7 +16,7 @@ func main() {
 		//  one 1
 		//  two 1
 		// order is not guaranteed
-		stream.Broadcast(
+		stream.Tee(
 			printer("one "),
 			printer("two "),
 		),
@@ -28,7 +28,7 @@ func main() {
 
 	l2 := stream.Line(
 		generate(0, 10, 1),
-		stream.Broadcast(
+		stream.Tee(
 			stream.Line(
 				// Only sends if number is even
 				stream.Func(func(p stream.Proc) error {

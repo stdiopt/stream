@@ -19,18 +19,18 @@ func TestConsumex(t *testing.T) {
 
 	test := func(tt testCase) func(t *testing.T) {
 		return func(t *testing.T) {
-			ch := newProcChan(tt.ctx, 0)
+			ch := newProcChan(0)
 			go func() {
 				defer ch.close()
 				for i := 0; i < 4; i++ {
-					ch.send(Message{Value: i}) // nolint: errcheck
+					ch.send(tt.ctx, Message{Value: i}) // nolint: errcheck
 				}
 			}()
 
 			consumed := []interface{}{}
 			fn := tt.fn(ch, &consumed)
 
-			err := ch.consume(fn)
+			err := ch.consume(tt.ctx, fn)
 			if want := tt.wantErr; err != want {
 				t.Errorf("\nwant: %v\n got: %v\n", want, err)
 			}
@@ -96,21 +96,22 @@ func TestSend(t *testing.T) {
 	test := func(tt testCase) func(t *testing.T) {
 		return func(t *testing.T) {
 			t.Helper()
+
 			consumed := []interface{}{}
 			wg := sync.WaitGroup{}
 
-			ch := newProcChan(tt.ctx, 0)
+			ch := newProcChan(0)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ch.consume(func(m Message) error { // nolint: errcheck
+				ch.consume(tt.ctx, func(m Message) error { // nolint: errcheck
 					consumed = append(consumed, m.Value)
 					return tt.consumerErr
 				})
 			}()
 
 			for _, s := range tt.values {
-				err := ch.send(Message{Value: s})
+				err := ch.send(tt.ctx, Message{Value: s})
 				if want := tt.wantErr; err != want {
 					t.Errorf("\nwant: %v\n got: %v\n", want, err)
 					break

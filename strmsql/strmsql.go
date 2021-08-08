@@ -14,7 +14,14 @@ type (
 	Meta  string
 )
 
-func execInsertQry(db *sql.DB, qry string, nparams int, batchParams ...interface{}) (sql.Result, error) {
+type Dialect int
+
+const (
+	MySQL = Dialect(iota + 1)
+	PSQL
+)
+
+func (d Dialect) execInsertQry(db *sql.DB, qry string, nparams int, batchParams ...interface{}) (sql.Result, error) {
 	qryBuf := &bytes.Buffer{}
 	qryBuf.WriteString(qry)
 	for i := range batchParams {
@@ -27,15 +34,19 @@ func execInsertQry(db *sql.DB, qry string, nparams int, batchParams ...interface
 		} else {
 			qryBuf.WriteString(",")
 		}
-		fmt.Fprintf(qryBuf, "$%d", i+1) // postgres
-		// fmt.Fprintf(qryBuf, "?") // mysql
+		switch d {
+		case MySQL:
+			fmt.Fprintf(qryBuf, "?") // mysql
+		case PSQL:
+			fmt.Fprintf(qryBuf, "$%d", i+1) // postgres
+		}
 	}
 	qryBuf.WriteString(")")
 
 	return db.Exec(qryBuf.String(), batchParams...)
 }
 
-func InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.Processor {
+func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		batchParams := []interface{}{}
 		err := p.Consume(func(v interface{}) error {
@@ -57,7 +68,7 @@ func InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) s
 			batchParams = append(batchParams, pparams...)
 
 			if len(batchParams)/len(params) > batchSize {
-				if _, err := execInsertQry(db, qry, len(params), batchParams...); err != nil {
+				if _, err := d.execInsertQry(db, qry, len(params), batchParams...); err != nil {
 					return err
 				}
 				batchParams = batchParams[:0]
@@ -68,12 +79,12 @@ func InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) s
 			return err
 		}
 
-		_, err = execInsertQry(db, qry, len(params), batchParams...)
+		_, err = d.execInsertQry(db, qry, len(params), batchParams...)
 		return err
 	})
 }
 
-func Exec(db *sql.DB, qry string, params ...interface{}) stream.Processor {
+func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.Processor {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			pparams := make([]interface{}, 0, len(params))
