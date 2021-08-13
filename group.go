@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -41,7 +42,14 @@ func (g *pGroup) Go(f func() error) {
 					err = fmt.Errorf("%v", p)
 				}
 			}()
-			return f()
+			err = f()
+			// Not sure if this is the ideal place to check for Break
+			// the function just returns and the stream compositors would
+			// aggregate
+			if errors.Is(err, ErrBreak) {
+				return nil
+			}
+			return err
 		}()
 		if err != nil {
 			g.errOnce.Do(func() {

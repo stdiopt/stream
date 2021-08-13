@@ -19,18 +19,18 @@ func TestConsumex(t *testing.T) {
 
 	test := func(tt testCase) func(t *testing.T) {
 		return func(t *testing.T) {
-			ch := newProcChan(0)
+			ch := newProcChan(tt.ctx, 0)
 			go func() {
 				defer ch.close()
 				for i := 0; i < 4; i++ {
-					ch.send(tt.ctx, Message{Value: i}) // nolint: errcheck
+					ch.Send(i) // nolint: errcheck
 				}
 			}()
 
 			consumed := []interface{}{}
 			fn := tt.fn(ch, &consumed)
 
-			err := ch.consume(tt.ctx, fn)
+			err := ch.Consume(fn)
 			if want := tt.wantErr; err != want {
 				t.Errorf("\nwant: %v\n got: %v\n", want, err)
 			}
@@ -49,8 +49,8 @@ func TestConsumex(t *testing.T) {
 	t.Run("consume with no error", test(testCase{
 		ctx: context.Background(),
 		fn: func(c *procChan, out *[]interface{}) consumerFunc {
-			return func(m Message) error {
-				*out = append(*out, m.Value)
+			return func(v interface{}) error {
+				*out = append(*out, v)
 				return nil
 			}
 		},
@@ -60,8 +60,8 @@ func TestConsumex(t *testing.T) {
 	t.Run("consume should return testError", test(testCase{
 		ctx: context.Background(),
 		fn: func(c *procChan, out *[]interface{}) consumerFunc {
-			return func(m Message) error {
-				*out = append(*out, m.Value)
+			return func(v interface{}) error {
+				*out = append(*out, v)
 				return testError
 			}
 		},
@@ -75,8 +75,8 @@ func TestConsumex(t *testing.T) {
 			return ctx
 		}(),
 		fn: func(c *procChan, out *[]interface{}) consumerFunc {
-			return func(m Message) error {
-				*out = append(*out, m.Value)
+			return func(v interface{}) error {
+				*out = append(*out, v)
 				return nil
 			}
 		},
@@ -100,18 +100,18 @@ func TestSend(t *testing.T) {
 			consumed := []interface{}{}
 			wg := sync.WaitGroup{}
 
-			ch := newProcChan(0)
+			ch := newProcChan(tt.ctx, 0)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ch.consume(tt.ctx, func(m Message) error { // nolint: errcheck
-					consumed = append(consumed, m.Value)
+				ch.Consume(func(v interface{}) error { // nolint: errcheck
+					consumed = append(consumed, v)
 					return tt.consumerErr
 				})
 			}()
 
 			for _, s := range tt.values {
-				err := ch.send(tt.ctx, Message{Value: s})
+				err := ch.Send(s)
 				if want := tt.wantErr; err != want {
 					t.Errorf("\nwant: %v\n got: %v\n", want, err)
 					break

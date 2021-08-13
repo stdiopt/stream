@@ -34,7 +34,7 @@ type aggOptions struct {
 
 type AggOptFunc func(a *aggOptions)
 
-func Aggregate(opt ...AggOptFunc) stream.Processor {
+func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
 	o := aggOptions{}
 	for _, fn := range opt {
 		fn(&o)
@@ -70,7 +70,7 @@ func Aggregate(opt ...AggOptFunc) stream.Processor {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := streamu.MetaFieldOf(p, v, a.Field)
+				fi, err := streamu.FieldOf(v, a.Field)
 				if err != nil {
 					continue
 				}

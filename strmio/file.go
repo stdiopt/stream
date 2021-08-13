@@ -1,17 +1,13 @@
 package strmio
 
 import (
-	"bytes"
-	"html/template"
 	"io"
-	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/stdiopt/stream"
 )
 
-func FileWrite(path string) stream.Processor {
+/*func FileWrite(path string) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		tmpl, err := template.New("path").Parse(path)
 		if err != nil {
@@ -55,13 +51,29 @@ func FileWrite(path string) stream.Processor {
 			return err
 		})
 	})
-}
+}*/
 
 // FileRead consume a filepath as a string and produces byte chunks from the file
-func FileRead() stream.Processor {
+/*func FileRead() stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		w := AsWriter(p)
 		err := p.Consume(func(path string) error {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(w, f)
+			return err
+		})
+		w.CloseWithError(err)
+		return err
+	})
+}*/
+
+func FileRead(path string) stream.ProcFunc {
+	return stream.Func(func(p stream.Proc) error {
+		w := AsWriter(p)
+		err := p.Consume(func(interface{}) error {
 			f, err := os.Open(path)
 			if err != nil {
 				return err

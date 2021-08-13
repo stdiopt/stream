@@ -9,26 +9,13 @@ import (
 	"github.com/stdiopt/stream"
 )
 
-func FieldToMeta(metaKey, field string) stream.Processor {
-	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(v interface{}) error {
-			val, err := MetaFieldOf(p, v, field)
-			if err != nil {
-				return err
-			}
-			p.MetaSet(metaKey, val)
-			return p.Send(v)
-		})
-	})
-}
-
 // Field extracts A field from a struct and sends it forward
 // on a map it will walk through map
 // on a slice it's possible to have Field1.0.Field2
-func Field(f string) stream.Processor {
+func Field(f string) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
-			val, err := MetaFieldOf(p, v, f)
+			val, err := FieldOf(v, f)
 			if err != nil {
 				return err
 			}
@@ -41,7 +28,7 @@ type (
 	FMap map[string]string
 )
 
-func FieldMap(target interface{}, fm FMap) stream.Processor {
+func FieldMap(target interface{}, fm FMap) stream.ProcFunc {
 	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
@@ -54,7 +41,7 @@ func FieldMap(target interface{}, fm FMap) stream.Processor {
 					return fmt.Errorf("field not found %q in %T", f, target)
 				}
 
-				val, err := MetaFieldOf(p, v, f)
+				val, err := FieldOf(v, f)
 				if err != nil {
 					return err
 				}
@@ -65,26 +52,17 @@ func FieldMap(target interface{}, fm FMap) stream.Processor {
 	})
 }
 
-func FieldOf(v interface{}, p string) (interface{}, error) {
-	return MetaFieldOf(nil, v, p)
-}
-
-// MetaField returns a field of the value v by walking through the separators
+// Field returns a field of the value v by walking through the separators
 // - on a struct it will walk through the struct Fields
 // - on a map[string]interface{} it will walk through map
 // - on a slice it's possible to have Field1.0.Field2
-func MetaFieldOf(p stream.Proc, v interface{}, s string) (interface{}, error) {
+func FieldOf(v interface{}, s string) (interface{}, error) {
 	if s == "" || s == "." {
 		return v, nil
 	}
 	pp := strings.Split(s, ".")
 
-	var cur reflect.Value
-	if p != nil && pp[0][0] == '#' {
-		k := pp[0][1:]
-		v = p.MetaValue(k)
-	}
-	cur = reflect.Indirect(reflect.ValueOf(v))
+	cur := reflect.Indirect(reflect.ValueOf(v))
 	for _, k := range pp {
 		switch cur.Kind() {
 		case reflect.Struct:

@@ -8,7 +8,7 @@ import (
 )
 
 // Unslice consumes slices and sends each slice element.
-func Unslice() stream.Processor {
+func Unslice() stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			val := reflect.Indirect(reflect.ValueOf(v))
@@ -28,7 +28,7 @@ func Unslice() stream.Processor {
 
 // Slice consumes elements and creates a slice if either downstream is done or
 // it reaches 'max' elements
-func Slice(max int) stream.Processor {
+func Slice(max int) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		slices := map[reflect.Type]reflect.Value{}
 		err := p.Consume(func(v interface{}) error {

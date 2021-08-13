@@ -2,7 +2,7 @@ package strmutil
 
 import "github.com/stdiopt/stream"
 
-func Infinite(start, step int) stream.Processor {
+func Infinite(start, step int) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(interface{}) error {
 			for i := start; ; i += step {
@@ -14,7 +14,7 @@ func Infinite(start, step int) stream.Processor {
 	})
 }
 
-func Seq(start, end, step int) stream.Processor {
+func Seq(start, end, step int) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(interface{}) error {
 			if start > end {

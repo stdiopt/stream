@@ -2,45 +2,34 @@ package stream
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"reflect"
 
 	"github.com/bwmarrin/snowflake"
 )
 
 type P interface {
-	Name() string
-	Send(interface{}) error
-
 	Context() context.Context
-
-	MetaSet(string, interface{})
-	MetaValue(string) interface{}
-	Meta() map[string]interface{}
+	Name() string
+	Sender
 }
 
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
 // func.
 type Proc interface {
 	P
-	Consume(interface{}) error
-}
-
-// Message is an internal Message type that also passes ctx
-type Message struct {
-	Value interface{}
-	Meta  map[string]interface{}
+	Consumer
 }
 
 type procFunc func(*proc) error
 
 func (fn procFunc) run(p *proc) (err error) { return fn(p) }
 
-func Func(fn func(Proc) error) Processor {
+func Func(fn func(Proc) error) ProcFunc {
 	pname := procName()
-	return procFunc(func(p *proc) error {
-		p.name = pname
+	return func(p Proc) error {
+		if p, ok := p.(*proc); ok {
+			p.name = pname
+		}
 		if err := fn(p); err != nil {
 			return strmError{
 				pname: pname,
@@ -48,14 +37,16 @@ func Func(fn func(Proc) error) Processor {
 			}
 		}
 		return nil
-	})
+	}
 }
 
-func F(fn interface{}) Processor {
+func F(fn interface{}) ProcFunc {
 	pname := procName()
 	fnVal := reflect.ValueOf(fn)
-	return procFunc(func(p *proc) error {
-		p.name = pname
+	return func(p Proc) error {
+		if p, ok := p.(*proc); ok {
+			p.name = pname
+		}
 		procVal := reflect.ValueOf(P(p))
 		err := p.Consume(func(v interface{}) error {
 			var arg reflect.Value
@@ -74,31 +65,26 @@ func F(fn interface{}) Processor {
 			return strmError{pname: pname, err: err}
 		}
 		return nil
-	})
+	}
 }
 
-type consumerFunc = func(Message) error
-
-type consumer interface {
-	consume(context.Context, consumerFunc) error
-	cancel()
+type Consumer interface {
+	Consume(interface{}) error
+	Cancel()
 }
 
-type sender interface {
-	send(context.Context, Message) error
-	close()
+type Sender interface {
+	Send(interface{}) error
 }
 
 // proc implements the Proc interface
 type proc struct {
 	id  snowflake.ID
 	ctx context.Context
-	consumer
-	sender
+	Consumer
+	Sender
 
 	name string
-	// State to send to next Processor on message
-	meta meta
 }
 
 func (p *proc) String() string {
@@ -106,11 +92,11 @@ func (p *proc) String() string {
 }
 
 // newProc makes a Proc based on a Consumer and Sender.
-func newProc(ctx context.Context, c consumer, s sender) *proc {
+func newProc(ctx context.Context, c Consumer, s Sender) *proc {
 	return &proc{
 		ctx:      ctx,
-		consumer: c,
-		sender:   s,
+		Consumer: c,
+		Sender:   s,
 	}
 }
 
@@ -118,99 +104,47 @@ func (p *proc) Name() string {
 	return p.name
 }
 
-func (p *proc) MetaSet(k string, v interface{}) {
-	p.meta.Set(k, v)
-}
-
-func (p *proc) MetaValue(k string) interface{} {
-	return p.meta.Get(k)
-}
-
-func (p *proc) Meta() map[string]interface{} {
-	return p.meta.Values()
-}
-
 // this can be overriden we should put here?
 func (p *proc) Consume(fn interface{}) error {
-	cfn := makeConsumerFunc(fn)
-	err := p.consume(p.ctx, func(m Message) error {
-		p.meta.SetAll(m.Meta)
-		return cfn(m)
-	})
-	if err != nil && err != ErrBreak {
-		return err
+	if p.Consumer == nil {
+		return makeConsumerFunc(fn)(nil)
 	}
-	return nil
+	return p.Consumer.Consume(fn)
 }
 
 func (p *proc) Send(v interface{}) error {
-	return p.send(p.ctx, Message{Value: v})
+	if p.Sender == nil {
+		return nil
+	}
+
+	return p.Sender.Send(v)
 }
 
 func (p *proc) Context() context.Context {
 	return p.ctx
 }
 
-// the only two important funcs that could be discarded?
-func (p *proc) consume(ctx context.Context, fn func(Message) error) (err error) {
-	defer func() {
-		meta := p.meta.Values()
-
-		if w, ok := meta["_debug"].(io.Writer); ok {
-			DebugProc(w, p, "closing")
-		}
-		if p := recover(); p != nil {
-			err = fmt.Errorf("consume panic: %v", p)
-		}
-	}()
-
-	if p.consumer == nil {
-		return fn(Message{})
-	}
-
-	return p.consumer.consume(ctx, fn)
-}
-
-func (p *proc) send(ctx context.Context, m Message) (err error) {
-	defer func() {
-		if p := recover(); p != nil {
-			err = fmt.Errorf("send panic: %v", p)
-		}
-	}()
-
-	meta := p.meta.Values()
-	if w, ok := meta["_debug"].(io.Writer); ok {
-		DebugProc(w, p, m.Value)
-	}
-
-	if p.sender == nil {
-		return nil
-	}
-	return p.sender.send(ctx, Message{Value: m.Value, Meta: meta})
-}
-
-func (p *proc) cancel() {
-	if p.consumer == nil {
+func (p *proc) Cancel() {
+	if p.Consumer == nil {
 		return
 	}
-	p.consumer.cancel()
+	p.Consumer.Cancel()
 }
 
+/*
 func (p *proc) close() {
 	if p.sender == nil {
 		return
 	}
 	p.sender.close()
 }
-
+*/
 // makeConsumerFunc returns a consumerFunc
 // Is a bit slower but some what wrappers typed messages.
 func makeConsumerFunc(fn interface{}) consumerFunc {
 	switch fn := fn.(type) {
 	case consumerFunc:
 		return fn
-	case func(interface{}) error:
-		return func(m Message) error { return fn(m.Value) }
 	}
 
 	// Any other param types
@@ -220,8 +154,8 @@ func makeConsumerFunc(fn interface{}) consumerFunc {
 		panic("should have 1 params")
 	}
 	args := make([]reflect.Value, 1)
-	return func(v Message) error {
-		args[0] = reflect.ValueOf(v.Value) // will panic if wrong type passed
+	return func(v interface{}) error {
+		args[0] = reflect.ValueOf(v) // will panic if wrong type passed
 		ret := fnVal.Call(args)
 		if err, ok := ret[0].Interface().(error); ok && err != nil {
 			return err

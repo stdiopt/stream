@@ -19,7 +19,7 @@ type RequestFunc func(r *http.Request)
 
 // GetResponse receives url as string, performs a get request and sends the
 // response
-func GetResponse(reqFunc ...RequestFunc) stream.Processor {
+func GetResponse(reqFunc ...RequestFunc) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			url, ok := v.(string)
@@ -46,7 +46,7 @@ func GetResponse(reqFunc ...RequestFunc) stream.Processor {
 
 // Get receives a stream of urls performs a get request and sends the
 // content as []byte
-func Get(reqFunc ...RequestFunc) stream.Processor {
+func Get(reqFunc ...RequestFunc) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			url, ok := v.(string)

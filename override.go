@@ -15,7 +15,7 @@ func (p override) Send(v interface{}) error {
 
 func (p override) Consume(fn interface{}) error {
 	f := makeConsumerFunc(fn)
-	return p.Proc.Consume(func(v Message) error {
+	return p.Proc.Consume(func(v interface{}) error {
 		log.Println("Received:", v)
 		return f(v)
 	})

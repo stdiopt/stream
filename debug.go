@@ -15,24 +15,22 @@ type DebugOpt struct {
 	Value     bool
 }
 
-func Debug(w io.Writer) Processor {
+func Debug(w io.Writer) ProcFunc {
 	return Func(func(p Proc) error {
 		return p.Consume(func(v interface{}) error {
-			p.MetaSet("_debug", w)
 			return p.Send(v)
 		})
 	})
 }
 
-func DebugProc(w io.Writer, p Proc, v interface{}) {
+func DebugProc(w io.Writer, pp Proc, v interface{}) {
 	name := "<unknown>"
-	if p, ok := p.(*proc); ok {
+	if p, ok := pp.(*proc); ok {
 		name = p.name
 	}
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, "[\033[01;37m%s\033[0m] ", name)
 	fmt.Fprintf(buf, "\033[01;33m%T\033[0m ", v)
-	fmt.Fprintf(buf, "meta: \033[34m%v\033[0m\n\t", p.Meta())
 
 	switch v := v.(type) {
 	case string:

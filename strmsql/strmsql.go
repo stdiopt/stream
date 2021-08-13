@@ -46,16 +46,14 @@ func (d Dialect) execInsertQry(db *sql.DB, qry string, nparams int, batchParams 
 	return db.Exec(qryBuf.String(), batchParams...)
 }
 
-func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.Processor {
+func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		batchParams := []interface{}{}
 		err := p.Consume(func(v interface{}) error {
 			pparams := make([]interface{}, 0, len(params))
 			for _, pp := range params {
-				var t interface{} = p
+				t := interface{}(pp)
 				switch pp := pp.(type) {
-				case Meta:
-					t = p.MetaValue(string(pp))
 				case Field:
 					f, err := strmutil.FieldOf(v, string(pp))
 					if err != nil {
@@ -78,21 +76,21 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 		if err != nil {
 			return err
 		}
-
-		_, err = d.execInsertQry(db, qry, len(params), batchParams...)
-		return err
+		if len(batchParams) > 0 {
+			_, err = d.execInsertQry(db, qry, len(params), batchParams...)
+			return err
+		}
+		return nil
 	})
 }
 
-func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.Processor {
+func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			pparams := make([]interface{}, 0, len(params))
 			for _, pp := range params {
 				var t interface{} = p
 				switch pp := pp.(type) {
-				case Meta:
-					t = p.MetaValue(string(pp))
 				case Field:
 					f, err := strmutil.FieldOf(v, string(pp))
 					if err != nil {

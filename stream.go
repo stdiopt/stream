@@ -6,66 +6,62 @@ import (
 )
 
 type Chan interface {
-	consumer
-	sender
+	Consumer
+	Sender
 	close()
-	cancel()
 }
+
+type ProcFunc = func(Proc) error
 
 // Processor to build a processor use stream.Func
-type Processor interface {
-	run(*proc) error
-}
+// type Processor interface {
+//	run(*proc) error
+// }
 
 // Line will consume and pass a message sequentually on all ProcFuncs.
-func Line(pfns ...Processor) Processor {
+func Line(pfns ...ProcFunc) ProcFunc {
 	if len(pfns) == 0 {
-		return procFunc(func(p *proc) error {
+		return func(p Proc) error {
 			return p.Consume(p.Send)
-		})
+		}
 	}
 	if len(pfns) == 1 {
 		return pfns[0]
 	}
-	return procFunc(func(p *proc) error {
-		ctx := p.Context()
-		eg, ctx := pGroupWithContext(ctx)
-		last := consumer(p) // consumer should be nil
+	return func(p Proc) error {
+		eg, ctx := pGroupWithContext(p.Context())
+		last := Consumer(p) // consumer should be nil
 		for _, fn := range pfns[:len(pfns)-1] {
 			l, fn := last, fn
-			ch := newProcChan(0)
+			ch := newProcChan(ctx, 0)
 
 			// Consuming from last and sending to channel
 			eg.Go(func() error {
-				if c, ok := l.(Chan); ok {
-					defer c.cancel()
-				}
+				defer l.Cancel()
 				defer ch.close()
-				return fn.run(newProc(ctx, l, ch))
+				return fn(newProc(ctx, l, ch))
 			})
 			last = ch
 		}
 		fn := pfns[len(pfns)-1]
 		eg.Go(func() error {
-			if c, ok := last.(Chan); ok {
-				defer c.cancel()
-			}
-			return fn.run(newProc(ctx, last, sender(p)))
+			defer last.Cancel()
+			return fn(newProc(ctx, last, p))
 		})
 		return eg.Wait()
-	})
+	}
 }
 
 // Tee consumes and passes the consumed message to all pfs ProcFuncs.
-func Tee(pfns ...Processor) Processor {
-	return procFunc(func(p *proc) error {
+func Tee(pfns ...ProcFunc) ProcFunc {
+	return func(p Proc) error {
 		eg, ctx := pGroupWithContext(p.Context())
 		chs := make([]Chan, len(pfns))
 		for i, fn := range pfns {
-			ch := newProcChan(0)
+			ch := newProcChan(ctx, 0)
 			fn := fn
 			eg.Go(func() error {
-				return fn.run(newProc(ctx, ch, p))
+				return fn(newProc(ctx, ch, p))
 			})
 			chs[i] = ch
 		}
@@ -75,9 +71,9 @@ func Tee(pfns ...Processor) Processor {
 					ch.close()
 				}
 			}()
-			return p.consume(ctx, func(m Message) error {
+			return p.Consume(func(v interface{}) error {
 				for _, ch := range chs {
-					if err := ch.send(ctx, m); err != nil {
+					if err := ch.Send(v); err != nil {
 						return err
 					}
 				}
@@ -85,53 +81,54 @@ func Tee(pfns ...Processor) Processor {
 			})
 		})
 		return eg.Wait()
-	})
+	}
 }
 
 // Workers will start N ProcFuncs consuming and sending on same channels.
-func Workers(n int, pfns ...Processor) Processor {
+func Workers(n int, pfns ...ProcFunc) ProcFunc {
 	pfn := Line(pfns...)
 	if n <= 0 {
 		n = 1
 	}
-	return procFunc(func(p *proc) error {
+	return func(pp Proc) error {
+		p := pp.(*proc)
 		ctx := p.Context()
 		eg, ctx := pGroupWithContext(ctx)
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
-				return pfn.run(newProc(ctx, p, p))
+				return pfn(newProc(ctx, p, p))
 			})
 		}
 		return eg.Wait()
-	})
+	}
 }
 
 // Buffer will create an extra buffered channel.
-func Buffer(n int, pfns ...Processor) Processor {
+func Buffer(n int, pfns ...ProcFunc) ProcFunc {
 	pfn := Line(pfns...)
-	return procFunc(func(p *proc) error {
+	return func(p Proc) error {
 		eg, ctx := pGroupWithContext(p.Context())
-		ch := newProcChan(n)
+		ch := newProcChan(ctx, n)
 		eg.Go(func() error {
 			defer ch.close()
 			np := newProc(ctx, p, ch)
 			return np.Consume(np.Send)
 		})
 		eg.Go(func() error {
-			defer ch.cancel()
-			return pfn.run(newProc(ctx, ch, p))
+			defer ch.Cancel()
+			return pfn(newProc(ctx, ch, p))
 		})
 		return eg.Wait()
-	})
+	}
 }
 
 // Run will run the stream.
-func Run(pfns ...Processor) error {
+func Run(pfns ...ProcFunc) error {
 	return RunWithContext(context.Background(), pfns...)
 }
 
 // RunWithContext runs the stream with a context.
-func RunWithContext(ctx context.Context, pfns ...Processor) error {
+func RunWithContext(ctx context.Context, pfns ...ProcFunc) error {
 	pfn := Line(pfns...)
-	return pfn.run(newProc(ctx, nil, nil))
+	return pfn(newProc(ctx, nil, nil))
 }

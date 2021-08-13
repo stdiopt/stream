@@ -21,7 +21,7 @@ import (
 }*/
 
 // Reader reads bytes from r and sends down the line.
-func Reader(r io.Reader) stream.Processor {
+func Reader(r io.Reader) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		buf := make([]byte, 4096)
 		isEOF := false
@@ -42,7 +42,7 @@ func Reader(r io.Reader) stream.Processor {
 }
 
 // WithReader expects a io.ReadCloser as input and sends the reader bytes.
-func WithReader() stream.Processor {
+func WithReader() stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(r io.ReadCloser) error {
 			defer r.Close()
@@ -68,7 +68,7 @@ func WithReader() stream.Processor {
 }
 
 // Writer consumes []byte and writes to io.Writer
-func Writer(w io.Writer) stream.Processor {
+func Writer(w io.Writer) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(b []byte) error {
 			_, err := w.Write(b)

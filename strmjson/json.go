@@ -19,7 +19,7 @@ import (
 // produce different types map[string]interface{}, []interface{}, string, float64
 // as the regular native json.Unmarshal
 // if the input is not bytes it will error and cancel the pipeline
-func Decode(v interface{}) stream.Processor {
+func Decode(v interface{}) stream.ProcFunc {
 	if v == nil {
 		var l interface{}
 		v = &l
@@ -56,7 +56,7 @@ func Decode(v interface{}) stream.Processor {
 	})
 }
 
-func Encode() stream.Processor {
+func Encode() stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		wr := strmio.AsWriter(p)
 		defer wr.Close()
@@ -102,7 +102,7 @@ func Encode() stream.Processor {
 	})
 }*/
 
-func Unmarshal(v interface{}) stream.Processor {
+func Unmarshal(v interface{}) stream.ProcFunc {
 	if v == nil {
 		var l interface{}
 		v = &l
@@ -125,7 +125,7 @@ func Unmarshal(v interface{}) stream.Processor {
 	})
 }
 
-func Marshal() stream.Processor {
+func Marshal() stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			buf, err := json.Marshal(v)
@@ -140,7 +140,7 @@ func Marshal() stream.Processor {
 
 // Dump encodes the input as json into the writer
 // TODO: {lpf} rename, this was meant for debug but might be good for general use
-func Dump(w io.Writer) stream.Processor {
+func Dump(w io.Writer) stream.ProcFunc {
 	return stream.Func(func(p stream.Proc) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
