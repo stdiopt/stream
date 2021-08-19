@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/bwmarrin/snowflake"
@@ -20,11 +21,7 @@ type Proc interface {
 	Consumer
 }
 
-type procFunc func(*proc) error
-
-func (fn procFunc) run(p *proc) (err error) { return fn(p) }
-
-func Func(fn func(Proc) error) ProcFunc {
+func Func(fn func(Proc) error) PipeFunc {
 	pname := procName()
 	return func(p Proc) error {
 		if p, ok := p.(*proc); ok {
@@ -40,37 +37,52 @@ func Func(fn func(Proc) error) ProcFunc {
 	}
 }
 
-func F(fn interface{}) ProcFunc {
+func F(fn interface{}) PipeFunc {
 	pname := procName()
-	fnVal := reflect.ValueOf(fn)
 	return func(p Proc) error {
 		if p, ok := p.(*proc); ok {
 			p.name = pname
 		}
-		procVal := reflect.ValueOf(P(p))
+		switch fn := fn.(type) {
+		case func(P, []byte) error:
+			err := p.Consume(func(b []byte) error {
+				return fn(p, b)
+			})
+			return wrapStrmError(pname, err)
+		case func(P, interface{}) error:
+			err := p.Consume(func(v interface{}) error {
+				return fn(p, v)
+			})
+			return wrapStrmError(pname, err)
+		}
+
+		fnVal := reflect.ValueOf(fn)
+		fnTyp := fnVal.Type()
+		args := make([]reflect.Value, 2)
+		args[0] = reflect.ValueOf(P(p))
 		err := p.Consume(func(v interface{}) error {
-			var arg reflect.Value
 			if v == nil {
-				arg = reflect.ValueOf(&v).Elem()
+				args[1] = reflect.New(fnTyp.In(1)).Elem()
 			} else {
-				arg = reflect.ValueOf(v)
+				args[1] = reflect.ValueOf(v)
 			}
-			ret := fnVal.Call([]reflect.Value{procVal, arg})
+			if args[1].Type() != fnTyp.In(1) {
+				return TypeMismatchError{fnTyp.In(1).String(), args[1].Type().String()}
+			}
+
+			ret := fnVal.Call(args)
 			if err, ok := ret[0].Interface().(error); ok && err != nil {
 				return err
 			}
 			return nil
 		})
-		if err != nil {
-			return strmError{pname: pname, err: err}
-		}
-		return nil
+		return wrapStrmError(pname, err)
 	}
 }
 
 type Consumer interface {
 	Consume(interface{}) error
-	Cancel()
+	Cancel() // do we need cancel
 }
 
 type Sender interface {
@@ -88,7 +100,7 @@ type proc struct {
 }
 
 func (p *proc) String() string {
-	return p.name
+	return fmt.Sprintf("%v", p.name)
 }
 
 // newProc makes a Proc based on a Consumer and Sender.
@@ -107,7 +119,7 @@ func (p *proc) Name() string {
 // this can be overriden we should put here?
 func (p *proc) Consume(fn interface{}) error {
 	if p.Consumer == nil {
-		return makeConsumerFunc(fn)(nil)
+		return MakeConsumerFunc(fn)(nil)
 	}
 	return p.Consumer.Consume(fn)
 }
@@ -131,19 +143,23 @@ func (p *proc) Cancel() {
 	p.Consumer.Cancel()
 }
 
-/*
-func (p *proc) close() {
-	if p.sender == nil {
-		return
-	}
-	p.sender.close()
-}
-*/
-// makeConsumerFunc returns a consumerFunc
+// MakeConsumerFunc returns a consumerFunc
 // Is a bit slower but some what wrappers typed messages.
-func makeConsumerFunc(fn interface{}) consumerFunc {
+func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 	switch fn := fn.(type) {
-	case consumerFunc:
+	// optimize for []byte
+	case func([]byte) error:
+		return func(v interface{}) error {
+			b, ok := v.([]byte)
+			if !ok {
+				return TypeMismatchError{
+					want: fmt.Sprint("%T", []byte(nil)),
+					got:  fmt.Sprint("%T", v),
+				}
+			}
+			return fn(b)
+		}
+	case ConsumerFunc:
 		return fn
 	}
 
@@ -155,7 +171,17 @@ func makeConsumerFunc(fn interface{}) consumerFunc {
 	}
 	args := make([]reflect.Value, 1)
 	return func(v interface{}) error {
-		args[0] = reflect.ValueOf(v) // will panic if wrong type passed
+		if v == nil {
+			args[0] = reflect.New(fnTyp.In(0)).Elem()
+		} else {
+			args[0] = reflect.ValueOf(v)
+		}
+		if args[0].Type() != fnTyp.In(0) {
+			return TypeMismatchError{
+				want: fnTyp.In(0).String(),
+				got:  args[0].Type().String(),
+			}
+		}
 		ret := fnVal.Call(args)
 		if err, ok := ret[0].Interface().(error); ok && err != nil {
 			return err

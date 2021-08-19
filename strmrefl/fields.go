@@ -1,4 +1,4 @@
-package strmutil
+package strmrefl
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 // Field extracts A field from a struct and sends it forward
 // on a map it will walk through map
 // on a slice it's possible to have Field1.0.Field2
-func Field(f string) stream.ProcFunc {
+func Field(f string) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			val, err := FieldOf(v, f)
@@ -28,7 +28,7 @@ type (
 	FMap map[string]string
 )
 
-func FieldMap(target interface{}, fm FMap) stream.ProcFunc {
+func FieldMap(target interface{}, fm FMap) stream.PipeFunc {
 	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {

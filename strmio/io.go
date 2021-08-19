@@ -7,21 +7,8 @@ import (
 	"github.com/stdiopt/stream"
 )
 
-// FileReader reads file and sends byte down the line.
-/*func File(path string) stream.Processor {
-	return stream.Func(func(p stream.Proc) error {
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		return Reader(f).Run(p)
-	})
-}*/
-
 // Reader reads bytes from r and sends down the line.
-func Reader(r io.Reader) stream.ProcFunc {
+func Reader(r io.Reader) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		buf := make([]byte, 4096)
 		isEOF := false
@@ -42,7 +29,7 @@ func Reader(r io.Reader) stream.ProcFunc {
 }
 
 // WithReader expects a io.ReadCloser as input and sends the reader bytes.
-func WithReader() stream.ProcFunc {
+func WithReader() stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(r io.ReadCloser) error {
 			defer r.Close()
@@ -68,7 +55,7 @@ func WithReader() stream.ProcFunc {
 }
 
 // Writer consumes []byte and writes to io.Writer
-func Writer(w io.Writer) stream.ProcFunc {
+func Writer(w io.Writer) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(b []byte) error {
 			_, err := w.Write(b)
@@ -105,9 +92,24 @@ type (
 var ErrClosed = errors.New("closed")
 
 type ProcWriter struct {
+	sender stream.Sender
+}
+
+func (w ProcWriter) Write(buf []byte) (int, error) {
+	sbuf := append([]byte{}, buf...)
+	if err := w.sender.Send(sbuf); err != nil {
+		return 0, err
+	}
+	return len(buf), nil
+}
+
+func AsWriter(p stream.P) ProcWriter {
+	return ProcWriter{p}
+}
+
+/*type ProcWriter struct {
 	proc stream.Proc
 	done chan struct{}
-	p    stream.Proc
 	*pipeWriter
 }
 
@@ -151,4 +153,4 @@ func AsWriter(p stream.Proc) *ProcWriter {
 		done:       done,
 		pipeWriter: pw,
 	}
-}
+}*/

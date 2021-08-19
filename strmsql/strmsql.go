@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/lib/pq"
 	"github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmutil"
+	"github.com/stdiopt/stream/strmrefl"
 )
 
 type (
@@ -21,7 +22,7 @@ const (
 	PSQL
 )
 
-func (d Dialect) execInsertQry(db *sql.DB, qry string, nparams int, batchParams ...interface{}) (sql.Result, error) {
+func (d Dialect) ExecInsertQry(db *sql.DB, qry string, nparams int, batchParams ...interface{}) (sql.Result, error) {
 	qryBuf := &bytes.Buffer{}
 	qryBuf.WriteString(qry)
 	for i := range batchParams {
@@ -46,7 +47,7 @@ func (d Dialect) execInsertQry(db *sql.DB, qry string, nparams int, batchParams 
 	return db.Exec(qryBuf.String(), batchParams...)
 }
 
-func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.ProcFunc {
+func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		batchParams := []interface{}{}
 		err := p.Consume(func(v interface{}) error {
@@ -54,8 +55,14 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 			for _, pp := range params {
 				t := interface{}(pp)
 				switch pp := pp.(type) {
+				case func(interface{}) (interface{}, error):
+					f, err := pp(v)
+					if err != nil {
+						return err
+					}
+					t = f
 				case Field:
-					f, err := strmutil.FieldOf(v, string(pp))
+					f, err := strmrefl.FieldOf(v, string(pp))
 					if err != nil {
 						return err
 					}
@@ -66,7 +73,7 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 			batchParams = append(batchParams, pparams...)
 
 			if len(batchParams)/len(params) > batchSize {
-				if _, err := d.execInsertQry(db, qry, len(params), batchParams...); err != nil {
+				if _, err := d.ExecInsertQry(db, qry, len(params), batchParams...); err != nil {
 					return err
 				}
 				batchParams = batchParams[:0]
@@ -77,22 +84,32 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 			return err
 		}
 		if len(batchParams) > 0 {
-			_, err = d.execInsertQry(db, qry, len(params), batchParams...)
+			_, err = d.ExecInsertQry(db, qry, len(params), batchParams...)
 			return err
 		}
 		return nil
 	})
 }
 
-func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.ProcFunc {
+func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...interface{}) stream.PipeFunc {
+	// PSQL only for now?!
 	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(v interface{}) error {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		stmt, err := tx.Prepare(pq.CopyIn(table, fields...))
+		if err != nil {
+			return err
+		}
+		defer tx.Commit()
+		err = p.Consume(func(v interface{}) error {
 			pparams := make([]interface{}, 0, len(params))
 			for _, pp := range params {
-				var t interface{} = p
+				t := interface{}(pp)
 				switch pp := pp.(type) {
 				case Field:
-					f, err := strmutil.FieldOf(v, string(pp))
+					f, err := strmrefl.FieldOf(v, string(pp))
 					if err != nil {
 						return err
 					}
@@ -100,10 +117,38 @@ func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.Proc
 				}
 				pparams = append(pparams, t)
 			}
-			if _, err := db.Exec(qry, pparams...); err != nil {
+			if _, err := stmt.Exec(pparams...); err != nil {
 				return err
 			}
 			return p.Send(v)
 		})
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		_, err = stmt.Exec()
+		return err
+	})
+}
+
+func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.PipeFunc {
+	return stream.F(func(p stream.P, v interface{}) error {
+		pparams := make([]interface{}, 0, len(params))
+		for _, pp := range params {
+			var t interface{} = p
+			switch pp := pp.(type) {
+			case Field:
+				f, err := strmrefl.FieldOf(v, string(pp))
+				if err != nil {
+					return err
+				}
+				t = f
+			}
+			pparams = append(pparams, t)
+		}
+		if _, err := db.Exec(qry, pparams...); err != nil {
+			return err
+		}
+		return p.Send(v)
 	})
 }

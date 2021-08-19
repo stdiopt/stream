@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -64,11 +65,11 @@ func (c *Counter) StreamFunc(p stream.Proc) error {
 	})
 }
 
-func Count(w io.Writer, d time.Duration) stream.ProcFunc {
-	return NewCounter(w, d).StreamFunc
+func Count(d time.Duration) stream.PipeFunc {
+	return NewCounter(os.Stderr, d).StreamFunc
 }
 
-func Debug(w io.Writer) stream.ProcFunc {
+func Debug(w io.Writer) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		defer log.Println("DEBUG: finished")
 		return p.Consume(func(v interface{}) error {

@@ -12,7 +12,7 @@ func TestConsumex(t *testing.T) {
 	testError := errors.New("test")
 	type testCase struct {
 		ctx      context.Context
-		fn       func(*procChan, *[]interface{}) consumerFunc
+		fn       func(*procChan, *[]interface{}) ConsumerFunc
 		wantData []interface{}
 		wantErr  error
 	}
@@ -48,7 +48,7 @@ func TestConsumex(t *testing.T) {
 
 	t.Run("consume with no error", test(testCase{
 		ctx: context.Background(),
-		fn: func(c *procChan, out *[]interface{}) consumerFunc {
+		fn: func(c *procChan, out *[]interface{}) ConsumerFunc {
 			return func(v interface{}) error {
 				*out = append(*out, v)
 				return nil
@@ -59,7 +59,7 @@ func TestConsumex(t *testing.T) {
 	}))
 	t.Run("consume should return testError", test(testCase{
 		ctx: context.Background(),
-		fn: func(c *procChan, out *[]interface{}) consumerFunc {
+		fn: func(c *procChan, out *[]interface{}) ConsumerFunc {
 			return func(v interface{}) error {
 				*out = append(*out, v)
 				return testError
@@ -74,7 +74,7 @@ func TestConsumex(t *testing.T) {
 			cancel()
 			return ctx
 		}(),
-		fn: func(c *procChan, out *[]interface{}) consumerFunc {
+		fn: func(c *procChan, out *[]interface{}) ConsumerFunc {
 			return func(v interface{}) error {
 				*out = append(*out, v)
 				return nil

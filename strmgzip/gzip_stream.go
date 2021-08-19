@@ -9,20 +9,15 @@ import (
 )
 
 // Provide a way to send a Writer and still send Meta
-func Zip(lvl int) stream.ProcFunc {
+func Zip(lvl int) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		wr := strmio.AsWriter(p)
 
 		w, err := gzip.NewWriterLevel(wr, lvl)
 		if err != nil {
-			wr.CloseWithError(err)
 			return err
 		}
-		defer func() {
-			w.Flush()
-			w.Close()
-			wr.Close()
-		}()
+		defer w.Close()
 		return p.Consume(func(buf []byte) error {
 			if _, err := w.Write(buf); err != nil {
 				return err
@@ -32,7 +27,7 @@ func Zip(lvl int) stream.ProcFunc {
 	})
 }
 
-func Unzip() stream.ProcFunc {
+func Unzip() stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
@@ -45,7 +40,6 @@ func Unzip() stream.ProcFunc {
 		}
 
 		wr := strmio.AsWriter(p)
-		defer wr.Close()
 		// TODO: verify if we really need the loop, since we will receive until EOF regardless the underlying data?
 		// for {
 		_, err = io.Copy(wr, gr)

@@ -70,18 +70,14 @@ import (
 	})
 }*/
 
-func FileRead(path string) stream.ProcFunc {
-	return stream.Func(func(p stream.Proc) error {
+func ReadFile() stream.PipeFunc {
+	return stream.F(func(p stream.P, path string) error {
 		w := AsWriter(p)
-		err := p.Consume(func(interface{}) error {
-			f, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(w, f)
+		f, err := os.Open(path)
+		if err != nil {
 			return err
-		})
-		w.CloseWithError(err)
+		}
+		_, err = io.Copy(w, f)
 		return err
 	})
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-type consumerFunc = func(interface{}) error
+type ConsumerFunc = func(interface{}) error
 
 // procChan wraps a channel and a context for cancellation awareness.
 type procChan struct {
@@ -47,7 +47,7 @@ func (c procChan) Send(v interface{}) error {
 // error
 // is not nil
 func (c procChan) Consume(ifn interface{}) error {
-	fn := makeConsumerFunc(ifn)
+	fn := MakeConsumerFunc(ifn)
 	for {
 		select {
 		case <-c.done:

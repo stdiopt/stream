@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmrefl"
 	streamu "github.com/stdiopt/stream/strmutil"
 )
 
@@ -34,7 +35,7 @@ type aggOptions struct {
 
 type AggOptFunc func(a *aggOptions)
 
-func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
+func Aggregate(opt ...AggOptFunc) stream.PipeFunc {
 	o := aggOptions{}
 	for _, fn := range opt {
 		fn(&o)
@@ -70,7 +71,7 @@ func Aggregate(opt ...AggOptFunc) stream.ProcFunc {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := streamu.FieldOf(v, a.Field)
+				fi, err := strmrefl.FieldOf(v, a.Field)
 				if err != nil {
 					continue
 				}

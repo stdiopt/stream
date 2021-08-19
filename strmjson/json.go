@@ -19,7 +19,7 @@ import (
 // produce different types map[string]interface{}, []interface{}, string, float64
 // as the regular native json.Unmarshal
 // if the input is not bytes it will error and cancel the pipeline
-func Decode(v interface{}) stream.ProcFunc {
+func Decode(v interface{}) stream.PipeFunc {
 	if v == nil {
 		var l interface{}
 		v = &l
@@ -56,91 +56,18 @@ func Decode(v interface{}) stream.ProcFunc {
 	})
 }
 
-func Encode() stream.ProcFunc {
+func Encode() stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		wr := strmio.AsWriter(p)
-		defer wr.Close()
 		enc := json.NewEncoder(wr)
 
-		return p.Consume(func(v interface{}) error {
-			return enc.Encode(v)
-		})
-	})
-}
-
-/*func Encode() stream.Processor {
-	return stream.Func(func(p stream.Proc) error {
-		pr, pw := io.Pipe()
-		go func() {
-			enc := json.NewEncoder(pw)
-			pw.CloseWithError(p.Consume(func(v interface{}) error {
-				return enc.Encode(v)
-			}))
-		}()
-
-		buf := make([]byte, 4096)
-		for {
-			select {
-			case <-p.Context().Done():
-				return p.Context().Err()
-			default:
-			}
-			n, err := pr.Read(buf)
-			if err == io.EOF {
-				continue
-			}
-			if err != nil {
-				return pr.CloseWithError(err)
-			}
-			sbuf := append([]byte{}, buf[:n]...)
-
-			if err := p.Send(sbuf); err != nil {
-				pw.CloseWithError(err)
-				return err
-			}
-		}
-	})
-}*/
-
-func Unmarshal(v interface{}) stream.ProcFunc {
-	if v == nil {
-		var l interface{}
-		v = &l
-	}
-	typ := reflect.Indirect(reflect.ValueOf(v)).Type()
-	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(buf []byte) error {
-			v := reflect.New(typ).Interface()
-
-			if err := json.Unmarshal(buf, v); err != nil {
-				return err
-			}
-
-			if vv, ok := v.(*interface{}); ok {
-				v = *vv
-			}
-
-			return p.Send(v)
-		})
-	})
-}
-
-func Marshal() stream.ProcFunc {
-	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(v interface{}) error {
-			buf, err := json.Marshal(v)
-			if err != nil {
-				return err
-			}
-
-			return p.Send(buf)
-		})
+		return p.Consume(enc.Encode)
 	})
 }
 
 // Dump encodes the input as json into the writer
 // TODO: {lpf} rename, this was meant for debug but might be good for general use
-func Dump(w io.Writer) stream.ProcFunc {
+func Dump(w io.Writer) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")

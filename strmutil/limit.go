@@ -4,7 +4,7 @@ import (
 	"github.com/stdiopt/stream"
 )
 
-func Limit(n int) stream.ProcFunc {
+func Limit(n int) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		count := 0
 		return p.Consume(func(v interface{}) error {

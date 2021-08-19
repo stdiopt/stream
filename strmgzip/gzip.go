@@ -8,7 +8,7 @@ import (
 )
 
 // Full zip the thing
-func ZipX(lvl int) stream.ProcFunc {
+func ZipX(lvl int) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(buf []byte) error {
 			pr, pw := io.Pipe()
@@ -37,7 +37,7 @@ func ZipX(lvl int) stream.ProcFunc {
 }
 
 // UnzipX full unzip thing
-func UnzipX() stream.ProcFunc {
+func UnzipX() stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(buf []byte) error {
 			pr, pw := io.Pipe()

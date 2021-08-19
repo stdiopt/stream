@@ -15,7 +15,7 @@ type DebugOpt struct {
 	Value     bool
 }
 
-func Debug(w io.Writer) ProcFunc {
+func Debug(w io.Writer) PipeFunc {
 	return Func(func(p Proc) error {
 		return p.Consume(func(v interface{}) error {
 			return p.Send(v)
@@ -26,7 +26,7 @@ func Debug(w io.Writer) ProcFunc {
 func DebugProc(w io.Writer, pp Proc, v interface{}) {
 	name := "<unknown>"
 	if p, ok := pp.(*proc); ok {
-		name = p.name
+		name = p.String()
 	}
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, "[\033[01;37m%s\033[0m] ", name)

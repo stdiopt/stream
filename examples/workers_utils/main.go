@@ -14,6 +14,7 @@ import (
 	"github.com/stdiopt/stream/strmhttp"
 	"github.com/stdiopt/stream/strmio"
 	"github.com/stdiopt/stream/strmjson"
+	"github.com/stdiopt/stream/strmrefl"
 	"github.com/stdiopt/stream/strmutil"
 )
 
@@ -24,12 +25,12 @@ func main() {
 		strmutil.Value("https://randomuser.me/api/?results=100"),
 
 		strmhttp.GetResponse(),
-		strmutil.Field("Body"),
+		strmrefl.Field("Body"),
 		strmio.WithReader(),
 		strmjson.Decode(nil),
-		strmutil.Field("results"),
-		strmutil.Unslice(),
-		strmutil.Field("picture.thumbnail"),
+		strmrefl.Field("results"),
+		strmrefl.Unslice(),
+		strmrefl.Field("picture.thumbnail"),
 		stream.Workers(32,
 			strmhttp.GetResponse(),
 			stream.Func(HTTPDownload),

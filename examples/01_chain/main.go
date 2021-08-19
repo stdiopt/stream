@@ -52,7 +52,7 @@ func print(p stream.Proc) error {
 }
 
 // generate numbers
-func generate(s, e, n int) stream.ProcFunc {
+func generate(s, e, n int) stream.PipeFunc {
 	return stream.Func(func(p stream.Proc) error {
 		for i := s; i < e; i++ {
 			if err := p.Send(i); err != nil {
