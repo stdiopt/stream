@@ -10,10 +10,19 @@ import (
 	"github.com/stdiopt/stream/strmrefl"
 )
 
-type (
-	Field string
-	Meta  string
-)
+type FieldFunc = func(interface{}) (interface{}, error)
+
+func Field(f ...interface{}) FieldFunc {
+	return func(v interface{}) (interface{}, error) {
+		return strmrefl.FieldOf(v, f...)
+	}
+}
+
+func Value(f ...interface{}) FieldFunc {
+	return func(v interface{}) (interface{}, error) {
+		return f, nil
+	}
+}
 
 type Dialect int
 
@@ -47,28 +56,21 @@ func (d Dialect) ExecInsertQry(db *sql.DB, qry string, nparams int, batchParams 
 	return db.Exec(qryBuf.String(), batchParams...)
 }
 
-func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.Pipe {
+func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...FieldFunc) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		batchParams := []interface{}{}
 		err := p.Consume(func(v interface{}) error {
 			pparams := make([]interface{}, 0, len(params))
 			for _, pp := range params {
-				t := interface{}(pp)
-				switch pp := pp.(type) {
-				case func(interface{}) (interface{}, error):
-					f, err := pp(v)
-					if err != nil {
-						return err
-					}
-					t = f
-				case Field:
-					f, err := strmrefl.FieldOf(v, string(pp))
-					if err != nil {
-						return err
-					}
-					t = f
+				res, err := pp(v)
+				if err != nil {
+					return err
 				}
-				pparams = append(pparams, t)
+				if r, ok := res.([]interface{}); ok {
+					pparams = append(pparams, r...)
+					continue
+				}
+				pparams = append(pparams, res)
 			}
 			batchParams = append(batchParams, pparams...)
 
@@ -91,7 +93,7 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 	})
 }
 
-func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...interface{}) stream.Pipe {
+func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...FieldFunc) stream.Pipe {
 	// PSQL only for now?!
 	return stream.Func(func(p stream.Proc) error {
 		tx, err := db.Begin()
@@ -106,19 +108,18 @@ func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ..
 		err = p.Consume(func(v interface{}) error {
 			pparams := make([]interface{}, 0, len(params))
 			for _, pp := range params {
-				t := interface{}(pp)
-				switch pp := pp.(type) {
-				case Field:
-					f, err := strmrefl.FieldOf(v, string(pp))
-					if err != nil {
-						return err
-					}
-					t = f
+				res, err := pp(v)
+				if err != nil {
+					return err
 				}
-				pparams = append(pparams, t)
+				if r, ok := res.([]interface{}); ok {
+					pparams = append(pparams, r...)
+					continue
+				}
+				pparams = append(pparams, res)
 			}
 			if _, err := stmt.Exec(pparams...); err != nil {
-				return err
+				return fmt.Errorf("stmt.Exec: %w", err)
 			}
 			return p.Send(v)
 		})
@@ -131,24 +132,23 @@ func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ..
 	})
 }
 
-func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.Pipe {
-	return stream.S(func(s stream.Sender, v interface{}) error {
+func (d Dialect) Exec(db *sql.DB, qry string, params ...FieldFunc) stream.Pipe {
+	return stream.S(func(p stream.Sender, v interface{}) error {
 		pparams := make([]interface{}, 0, len(params))
 		for _, pp := range params {
-			var t interface{} = s
-			switch pp := pp.(type) {
-			case Field:
-				f, err := strmrefl.FieldOf(v, string(pp))
-				if err != nil {
-					return err
-				}
-				t = f
+			res, err := pp(v)
+			if err != nil {
+				return err
 			}
-			pparams = append(pparams, t)
+			if r, ok := res.([]interface{}); ok {
+				pparams = append(pparams, r...)
+				continue
+			}
+			pparams = append(pparams, res)
 		}
 		if _, err := db.Exec(qry, pparams...); err != nil {
 			return err
 		}
-		return s.Send(v)
+		return p.Send(v)
 	})
 }
