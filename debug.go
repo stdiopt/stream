@@ -15,7 +15,7 @@ type DebugOpt struct {
 	Value     bool
 }
 
-func Debug(w io.Writer) PipeFunc {
+func Debug(w io.Writer) Pipe {
 	return Func(func(p Proc) error {
 		return p.Consume(func(v interface{}) error {
 			return p.Send(v)

@@ -8,22 +8,8 @@ import (
 )
 
 // ListFiles recursively and each send filename
-func ListFiles() stream.PipeFunc {
-	return stream.F(func(p stream.Proc, path string) error {
-		return filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() {
-				return nil
-			}
-			return p.Send(path)
-		})
-	})
-}
-
-func Glob(pattern string) stream.PipeFunc {
-	return stream.F(func(p stream.Proc, path string) error {
+func ListFiles(pattern string) stream.Pipe {
+	return stream.S(func(s stream.Sender, path string) error {
 		return filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -36,7 +22,7 @@ func Glob(pattern string) stream.PipeFunc {
 				return err
 			}
 			if matched {
-				return p.Send(path)
+				return s.Send(path)
 			}
 			return nil
 		})

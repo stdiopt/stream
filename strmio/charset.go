@@ -8,7 +8,7 @@ import (
 // Might not be the proper package for this
 
 // CharmapDecode receives bytes and converts from charmap to UTF-8.
-func CharmapDecode(cm *charmap.Charmap) stream.PipeFunc {
+func CharmapDecode(cm *charmap.Charmap) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		dec := cm.NewDecoder()
 		return p.Consume(func(buf []byte) error {

@@ -35,7 +35,7 @@ type aggOptions struct {
 
 type AggOptFunc func(a *aggOptions)
 
-func Aggregate(opt ...AggOptFunc) stream.PipeFunc {
+func Aggregate(opt ...AggOptFunc) stream.Pipe {
 	o := aggOptions{}
 	for _, fn := range opt {
 		fn(&o)

@@ -22,6 +22,10 @@ func newProcChan(ctx context.Context, buffer int) *procChan {
 	}
 }
 
+func (c procChan) Context() context.Context {
+	return c.ctx
+}
+
 // Send sends v to the underlying channel if context is cancelled it will return
 // the underlying ctx.Err()
 func (c procChan) Send(v interface{}) error {
@@ -65,7 +69,7 @@ func (c procChan) Consume(ifn interface{}) error {
 	}
 }
 
-func (c procChan) Cancel() {
+func (c procChan) cancel() {
 	select {
 	case <-c.done:
 	default:

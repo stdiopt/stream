@@ -8,7 +8,7 @@ import (
 )
 
 // Reader reads bytes from r and sends down the line.
-func Reader(r io.Reader) stream.PipeFunc {
+func Reader(r io.Reader) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		buf := make([]byte, 4096)
 		isEOF := false
@@ -29,7 +29,7 @@ func Reader(r io.Reader) stream.PipeFunc {
 }
 
 // WithReader expects a io.ReadCloser as input and sends the reader bytes.
-func WithReader() stream.PipeFunc {
+func WithReader() stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(r io.ReadCloser) error {
 			defer r.Close()
@@ -55,7 +55,7 @@ func WithReader() stream.PipeFunc {
 }
 
 // Writer consumes []byte and writes to io.Writer
-func Writer(w io.Writer) stream.PipeFunc {
+func Writer(w io.Writer) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(b []byte) error {
 			_, err := w.Write(b)
@@ -103,8 +103,8 @@ func (w ProcWriter) Write(buf []byte) (int, error) {
 	return len(buf), nil
 }
 
-func AsWriter(p stream.P) ProcWriter {
-	return ProcWriter{p}
+func AsWriter(s stream.Sender) ProcWriter {
+	return ProcWriter{s}
 }
 
 /*type ProcWriter struct {

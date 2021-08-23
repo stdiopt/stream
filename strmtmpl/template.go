@@ -10,7 +10,7 @@ import (
 
 // Template receives any type and processes it through the template described
 // on s and produces []byte
-func Template(s string) stream.PipeFunc {
+func Template(s string) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		tmpl := template.New("/")
 		tmpl = tmpl.Option("missingkey=error")

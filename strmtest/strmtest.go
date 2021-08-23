@@ -2,6 +2,7 @@
 package strmtest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -10,7 +11,7 @@ import (
 
 // Case to be used with Test func and test pipelines.
 type Case struct {
-	PipeFunc    stream.PipeFunc
+	PipeFunc    stream.Pipe
 	SenderError error
 	CloserError error
 
@@ -39,7 +40,7 @@ func NewCase(opt ...CaseOptFunc) Case {
 	return c
 }
 
-func WithPipeFunc(p stream.PipeFunc) CaseOptFunc {
+func WithPipeFunc(p stream.Pipe) CaseOptFunc {
 	return func(c *Case) { c.PipeFunc = p }
 }
 
@@ -73,76 +74,73 @@ func WithWantClosePanic(match string) CaseOptFunc {
 	return func(c *Case) { c.WantClosePanicRE = match }
 }
 
+type procMock struct {
+	ctx         context.Context
+	err         chan error
+	ConsumeFunc func(v interface{}) error
+	SendFunc    func(v interface{}) error
+}
+
+func (p *procMock) Context() context.Context {
+	return p.ctx
+}
+
+func (p *procMock) Cancel() {
+}
+
+func (p *procMock) Consume(fn interface{}) error {
+	p.ConsumeFunc = stream.MakeConsumerFunc(fn)
+	return <-p.err
+}
+
+func (p *procMock) Send(v interface{}) error {
+	return p.SendFunc(v)
+}
+
 func (tt Case) Test(t *testing.T) {
 	t.Helper()
 
-	type result struct {
-		out []interface{}
-	}
-	cr := &result{}
-	var closed int
+	var got []interface{}
 
-	capture := func(p stream.Proc) error {
-		err := p.Consume(func(v interface{}) error {
+	mock := &procMock{
+		ctx: context.Background(),
+		err: make(chan error),
+		SendFunc: func(v interface{}) error {
 			if tt.SenderError != nil {
 				return tt.SenderError
 			}
-			cr.out = append(cr.out, v)
+			got = append(got, v)
 			return nil
-		})
-		closed++
-		return err
+		},
 	}
 
-	pfn := func() stream.PipeFunc {
+	go func() {
 		defer func() {
 			p := recover()
 			if !matchPanic(tt.WantInitPanicRE, p) {
 				t.Fatalf("wrong init panic\nwant: %v\n got: %v\n", tt.WantInitPanicRE, p)
 			}
 		}()
-		pfn := tt.PipeFunc(capture)
+		err := tt.PipeFunc(mock)
 		if !matchError(tt.WantInitErrorRE, err) {
 			t.Fatalf("wrong init error\nwant: %v\n got: %v\n", tt.WantInitErrorRE, err)
 		}
-		return s
 	}()
-	if pfn == nil {
-		return
-	}
 
-	results := []*result{}
 	for i, m := range tt.Sends {
 		// Should we check send panic?
 		cr = &result{}
-		results = append(results, cr)
 
-		err := s.Send(m.Value)
+		err := mock.ConsumeFunc(m.Value)
 		if !matchError(m.WantErrorRE, err) {
 			t.Errorf("wrong send#%d error\nwant: %v\n got: %v\n", i, m.WantErrorRE, err)
 		}
-	}
 
-	func() {
-		defer func() {
-			p := recover()
-			if !matchPanic(tt.WantClosePanicRE, p) {
-				t.Fatalf("wrong close panic\nwant: %v\n got: %v\n", tt.WantClosePanicRE, p)
-			}
-		}()
-		err := s.Close()
-		if !matchError(tt.WantCloseErrorRE, err) {
-			t.Errorf("wrong close error\nwant: %v\n got: %v\n", tt.WantCloseErrorRE, err)
-		}
-	}()
-
-	for i, m := range tt.Sends {
-		got := results[i].out
-		if diff := cmp.Diff(m.Want, got); diff != "" {
+		if diff := cmp.Diff(m.Want, cr.out); diff != "" {
 			t.Errorf("wrong output#%d\n- want + got\n%v", i, diff)
 		}
-
 	}
+	close(mock.err)
 
 	if closed != 1 {
 		t.Fatalf("wrong close count\nwant: %v\n got: %v\n", 1, closed)

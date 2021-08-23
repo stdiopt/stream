@@ -17,7 +17,7 @@ func main() {
 	}
 }
 
-func producer(n int) stream.PipeFunc {
+func producer(n int) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		for i := 0; i < 10; i++ {
 			if err := p.Send(i); err != nil {

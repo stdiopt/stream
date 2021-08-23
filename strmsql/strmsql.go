@@ -47,7 +47,7 @@ func (d Dialect) ExecInsertQry(db *sql.DB, qry string, nparams int, batchParams 
 	return db.Exec(qryBuf.String(), batchParams...)
 }
 
-func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.PipeFunc {
+func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		batchParams := []interface{}{}
 		err := p.Consume(func(v interface{}) error {
@@ -91,7 +91,7 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 	})
 }
 
-func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...interface{}) stream.PipeFunc {
+func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...interface{}) stream.Pipe {
 	// PSQL only for now?!
 	return stream.Func(func(p stream.Proc) error {
 		tx, err := db.Begin()
@@ -131,11 +131,11 @@ func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ..
 	})
 }
 
-func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.PipeFunc {
-	return stream.F(func(p stream.P, v interface{}) error {
+func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.Pipe {
+	return stream.S(func(s stream.Sender, v interface{}) error {
 		pparams := make([]interface{}, 0, len(params))
 		for _, pp := range params {
-			var t interface{} = p
+			var t interface{} = s
 			switch pp := pp.(type) {
 			case Field:
 				f, err := strmrefl.FieldOf(v, string(pp))
@@ -149,6 +149,6 @@ func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) stream.Pipe
 		if _, err := db.Exec(qry, pparams...); err != nil {
 			return err
 		}
-		return p.Send(v)
+		return s.Send(v)
 	})
 }

@@ -61,7 +61,7 @@ func main() {
 	}
 }
 
-func termColor(c string) stream.PipeFunc {
+func termColor(c string) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			return p.Send(fmt.Sprintf("%s%v\033[0m", c, v))
@@ -69,7 +69,7 @@ func termColor(c string) stream.PipeFunc {
 	})
 }
 
-func printer(prefix string) stream.PipeFunc {
+func printer(prefix string) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			fmt.Printf("%s%v\n", prefix, v)
@@ -79,7 +79,7 @@ func printer(prefix string) stream.PipeFunc {
 }
 
 // generate numbers
-func generate(s, e, n int) stream.PipeFunc {
+func generate(s, e, n int) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		for i := s; i < e; i += n {
 			if err := p.Send(i); err != nil {

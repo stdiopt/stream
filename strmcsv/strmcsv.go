@@ -11,7 +11,7 @@ import (
 )
 
 // Decode receives bytes and produces [][]string fields?
-func Decode(comma rune) stream.PipeFunc {
+func Decode(comma rune) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
@@ -39,7 +39,7 @@ func Decode(comma rune) stream.PipeFunc {
 	})
 }
 
-func DecodeMatch(comma rune, fields ...string) stream.PipeFunc {
+func DecodeMatch(comma rune, fields ...string) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
@@ -91,7 +91,7 @@ func DecodeMatch(comma rune, fields ...string) stream.PipeFunc {
 	})
 }
 
-func DecodeAsJSON(comma rune) stream.PipeFunc {
+func DecodeAsJSON(comma rune) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()

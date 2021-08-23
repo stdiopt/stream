@@ -9,7 +9,7 @@ import (
 )
 
 // Provide a way to send a Writer and still send Meta
-func Zip(lvl int) stream.PipeFunc {
+func Zip(lvl int) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		wr := strmio.AsWriter(p)
 
@@ -27,7 +27,7 @@ func Zip(lvl int) stream.PipeFunc {
 	})
 }
 
-func Unzip() stream.PipeFunc {
+func Unzip() stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()

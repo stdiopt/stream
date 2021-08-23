@@ -65,11 +65,11 @@ func (c *Counter) StreamFunc(p stream.Proc) error {
 	})
 }
 
-func Count(d time.Duration) stream.PipeFunc {
+func Count(d time.Duration) stream.Pipe {
 	return NewCounter(os.Stderr, d).StreamFunc
 }
 
-func Debug(w io.Writer) stream.PipeFunc {
+func Debug(w io.Writer) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		defer log.Println("DEBUG: finished")
 		return p.Consume(func(v interface{}) error {

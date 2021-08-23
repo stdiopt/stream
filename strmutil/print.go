@@ -6,7 +6,7 @@ import (
 	"github.com/stdiopt/stream"
 )
 
-func Print(prefix string) stream.PipeFunc {
+func Print(prefix string) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			switch v := v.(type) {

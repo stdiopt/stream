@@ -19,7 +19,7 @@ import (
 // produce different types map[string]interface{}, []interface{}, string, float64
 // as the regular native json.Unmarshal
 // if the input is not bytes it will error and cancel the pipeline
-func Decode(v interface{}) stream.PipeFunc {
+func Decode(v interface{}) stream.Pipe {
 	if v == nil {
 		var l interface{}
 		v = &l
@@ -56,7 +56,7 @@ func Decode(v interface{}) stream.PipeFunc {
 	})
 }
 
-func Encode() stream.PipeFunc {
+func Encode() stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		wr := strmio.AsWriter(p)
 		enc := json.NewEncoder(wr)
@@ -67,7 +67,7 @@ func Encode() stream.PipeFunc {
 
 // Dump encodes the input as json into the writer
 // TODO: {lpf} rename, this was meant for debug but might be good for general use
-func Dump(w io.Writer) stream.PipeFunc {
+func Dump(w io.Writer) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")

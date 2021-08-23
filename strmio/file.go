@@ -3,76 +3,46 @@ package strmio
 import (
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/stdiopt/stream"
 )
 
-/*func FileWrite(path string) stream.ProcFunc {
+// WriteFile create a file in path and writes to it.
+func WriteFile(path string) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
-		tmpl, err := template.New("path").Parse(path)
-		if err != nil {
-			return err
-		}
+		closefn := func() {}
+		defer closefn()
 
-		var lastFile string
 		var f *os.File
-		defer func() {
-			if f != nil {
-				f.Close()
-			}
-		}()
 		return p.Consume(func(buf []byte) error {
-			pathBuf := &bytes.Buffer{}
-			if err := tmpl.Execute(pathBuf, p.Meta()); err != nil {
-				return err
-			}
-			fpath := pathBuf.String()
-			// Create another file
-			if lastFile != fpath {
-				lastFile = fpath
-				if f != nil {
-					f.Close()
-				}
-				dir := filepath.Dir(fpath)
+			// Only create file if something received
+			if f == nil {
+				dir := filepath.Dir(path)
 				if err := os.MkdirAll(dir, os.FileMode(0755)); err != nil {
 					return err
 				}
-				nf, err := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_APPEND, os.FileMode(0644))
-				if err != nil {
-					nf, err = os.Create(fpath)
-					log.Println("PAth error:", err)
-				}
+
+				nf, err := os.Create(path)
 				if err != nil {
 					return err
 				}
+
+				closefn = func() { f.Close() }
 				f = nf
 			}
-			_, err := f.Write(buf)
-			return err
-		})
-	})
-}*/
 
-// FileRead consume a filepath as a string and produces byte chunks from the file
-/*func FileRead() stream.ProcFunc {
-	return stream.Func(func(p stream.Proc) error {
-		w := AsWriter(p)
-		err := p.Consume(func(path string) error {
-			f, err := os.Open(path)
-			if err != nil {
+			if _, err := f.Write(buf); err != nil {
 				return err
 			}
-			_, err = io.Copy(w, f)
-			return err
+			return p.Send(buf)
 		})
-		w.CloseWithError(err)
-		return err
 	})
-}*/
+}
 
-func ReadFile() stream.PipeFunc {
-	return stream.F(func(p stream.P, path string) error {
-		w := AsWriter(p)
+func ReadFile() stream.Pipe {
+	return stream.S(func(s stream.Sender, path string) error {
+		w := AsWriter(s)
 		f, err := os.Open(path)
 		if err != nil {
 			return err

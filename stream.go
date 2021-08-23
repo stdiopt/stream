@@ -11,7 +11,7 @@ type Chan interface {
 	close()
 }
 
-type PipeFunc = func(Proc) error
+type Pipe = func(Proc) error
 
 // Processor to build a processor use stream.Func
 // type Processor interface {
@@ -19,7 +19,7 @@ type PipeFunc = func(Proc) error
 // }
 
 // Line will consume and pass a message sequentually on all ProcFuncs.
-func Line(pfns ...PipeFunc) PipeFunc {
+func Line(pfns ...Pipe) Pipe {
 	if len(pfns) == 0 {
 		return func(p Proc) error {
 			return p.Consume(p.Send)
@@ -37,7 +37,7 @@ func Line(pfns ...PipeFunc) PipeFunc {
 
 			// Consuming from last and sending to channel
 			eg.Go(func() error {
-				defer l.Cancel()
+				defer l.cancel()
 				defer ch.close()
 				return fn(newProc(ctx, l, ch))
 			})
@@ -45,7 +45,7 @@ func Line(pfns ...PipeFunc) PipeFunc {
 		}
 		fn := pfns[len(pfns)-1]
 		eg.Go(func() error {
-			defer last.Cancel()
+			defer last.cancel()
 			return fn(newProc(ctx, last, p))
 		})
 		return eg.Wait()
@@ -53,7 +53,7 @@ func Line(pfns ...PipeFunc) PipeFunc {
 }
 
 // Tee consumes and passes the consumed message to all pfs ProcFuncs.
-func Tee(pfns ...PipeFunc) PipeFunc {
+func Tee(pfns ...Pipe) Pipe {
 	return func(p Proc) error {
 		eg, ctx := pGroupWithContext(p.Context())
 		chs := make([]Chan, len(pfns))
@@ -85,7 +85,7 @@ func Tee(pfns ...PipeFunc) PipeFunc {
 }
 
 // Workers will start N ProcFuncs consuming and sending on same channels.
-func Workers(n int, pfns ...PipeFunc) PipeFunc {
+func Workers(n int, pfns ...Pipe) Pipe {
 	pfn := Line(pfns...)
 	if n <= 0 {
 		n = 1
@@ -104,7 +104,7 @@ func Workers(n int, pfns ...PipeFunc) PipeFunc {
 }
 
 // Buffer will create an extra buffered channel.
-func Buffer(n int, pfns ...PipeFunc) PipeFunc {
+func Buffer(n int, pfns ...Pipe) Pipe {
 	pfn := Line(pfns...)
 	return func(p Proc) error {
 		eg, ctx := pGroupWithContext(p.Context())
@@ -115,7 +115,7 @@ func Buffer(n int, pfns ...PipeFunc) PipeFunc {
 			return np.Consume(np.Send)
 		})
 		eg.Go(func() error {
-			defer ch.Cancel()
+			defer ch.cancel()
 			return pfn(newProc(ctx, ch, p))
 		})
 		return eg.Wait()
@@ -123,12 +123,12 @@ func Buffer(n int, pfns ...PipeFunc) PipeFunc {
 }
 
 // Run will run the stream.
-func Run(pfns ...PipeFunc) error {
+func Run(pfns ...Pipe) error {
 	return RunWithContext(context.Background(), pfns...)
 }
 
 // RunWithContext runs the stream with a context.
-func RunWithContext(ctx context.Context, pfns ...PipeFunc) error {
+func RunWithContext(ctx context.Context, pfns ...Pipe) error {
 	pfn := Line(pfns...)
 	return pfn(newProc(ctx, nil, nil))
 }

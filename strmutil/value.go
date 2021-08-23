@@ -5,7 +5,7 @@ import (
 )
 
 // Value returns a ProcFunc that sends a single value v.
-func Value(v interface{}) stream.PipeFunc {
+func Value(v interface{}) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(interface{}) error {
 			return p.Send(v)
@@ -14,7 +14,7 @@ func Value(v interface{}) stream.PipeFunc {
 }
 
 // Repeat consumes and sends n times.
-func Repeat(n int) stream.PipeFunc {
+func Repeat(n int) stream.Pipe {
 	return stream.Func(func(p stream.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			for i := 0; i < n; i++ {

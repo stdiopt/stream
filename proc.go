@@ -8,24 +8,18 @@ import (
 	"github.com/bwmarrin/snowflake"
 )
 
-type P interface {
-	Context() context.Context
-	Name() string
-	Sender
-}
-
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
 // func.
 type Proc interface {
-	P
+	Sender
 	Consumer
 }
 
-func Func(fn func(Proc) error) PipeFunc {
+func Func(fn func(Proc) error) Pipe {
 	pname := procName()
 	return func(p Proc) error {
-		if p, ok := p.(*proc); ok {
-			p.name = pname
+		if p, ok := p.(interface{ setName(string) }); ok {
+			p.setName(pname)
 		}
 		if err := fn(p); err != nil {
 			return strmError{
@@ -37,19 +31,61 @@ func Func(fn func(Proc) error) PipeFunc {
 	}
 }
 
-func F(fn interface{}) PipeFunc {
+func T(fn interface{}) Pipe {
 	pname := procName()
 	return func(p Proc) error {
-		if p, ok := p.(*proc); ok {
-			p.name = pname
+		if p, ok := p.(interface{ setName(string) }); ok {
+			p.setName(pname)
 		}
 		switch fn := fn.(type) {
-		case func(P, []byte) error:
+		case func(interface{}) (interface{}, error):
+			return p.Consume(func(v interface{}) error {
+				r, err := fn(v)
+				if err != nil {
+					return err
+				}
+				return p.Send(r)
+			})
+		}
+
+		fnVal := reflect.ValueOf(fn)
+		fnTyp := fnVal.Type()
+
+		args := make([]reflect.Value, 1)
+		err := p.Consume(func(v interface{}) error {
+			if v == nil {
+				args[0] = reflect.New(fnTyp.In(0)).Elem()
+			} else {
+				args[0] = reflect.ValueOf(v)
+			}
+			if args[0].Type() != fnTyp.In(0) {
+				return TypeMismatchError{fnTyp.In(0).String(), args[0].Type().String()}
+			}
+
+			ret := fnVal.Call(args)
+			if err, ok := ret[1].Interface().(error); ok && err != nil {
+				return err
+			}
+			return p.Send(ret[0].Interface())
+		})
+		return wrapStrmError(pname, err)
+	}
+}
+
+func S(fn interface{}) Pipe {
+	pname := procName()
+	return func(p Proc) error {
+		if p, ok := p.(interface{ setName(string) }); ok {
+			p.setName(pname)
+		}
+
+		switch fn := fn.(type) {
+		case func(Sender, []byte) error:
 			err := p.Consume(func(b []byte) error {
 				return fn(p, b)
 			})
 			return wrapStrmError(pname, err)
-		case func(P, interface{}) error:
+		case func(Sender, interface{}) error:
 			err := p.Consume(func(v interface{}) error {
 				return fn(p, v)
 			})
@@ -59,7 +95,7 @@ func F(fn interface{}) PipeFunc {
 		fnVal := reflect.ValueOf(fn)
 		fnTyp := fnVal.Type()
 		args := make([]reflect.Value, 2)
-		args[0] = reflect.ValueOf(P(p))
+		args[0] = reflect.ValueOf(Sender(p))
 		err := p.Consume(func(v interface{}) error {
 			if v == nil {
 				args[1] = reflect.New(fnTyp.In(1)).Elem()
@@ -82,10 +118,11 @@ func F(fn interface{}) PipeFunc {
 
 type Consumer interface {
 	Consume(interface{}) error
-	Cancel() // do we need cancel
+	cancel() // do we need cancel
 }
 
 type Sender interface {
+	Context() context.Context
 	Send(interface{}) error
 }
 
@@ -136,11 +173,11 @@ func (p *proc) Context() context.Context {
 	return p.ctx
 }
 
-func (p *proc) Cancel() {
+func (p *proc) cancel() {
 	if p.Consumer == nil {
 		return
 	}
-	p.Consumer.Cancel()
+	p.Consumer.cancel()
 }
 
 // MakeConsumerFunc returns a consumerFunc
@@ -153,8 +190,8 @@ func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 			b, ok := v.([]byte)
 			if !ok {
 				return TypeMismatchError{
-					want: fmt.Sprint("%T", []byte(nil)),
-					got:  fmt.Sprint("%T", v),
+					want: fmt.Sprintf("%T", []byte(nil)),
+					got:  fmt.Sprintf("%T", v),
 				}
 			}
 			return fn(b)
