@@ -4,13 +4,13 @@ import (
 	"compress/gzip"
 	"io"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmio"
 )
 
 // Provide a way to send a Writer and still send Meta
-func Zip(lvl int) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Zip(lvl int) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		wr := strmio.AsWriter(p)
 
 		w, err := gzip.NewWriterLevel(wr, lvl)
@@ -27,8 +27,8 @@ func Zip(lvl int) stream.Pipe {
 	})
 }
 
-func Unzip() stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Unzip() strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
 		gr, err := gzip.NewReader(rd)

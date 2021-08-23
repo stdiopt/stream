@@ -3,10 +3,11 @@ package strmhttp
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmio"
 )
 
 func WithHeader(k, v string) RequestFunc {
@@ -19,8 +20,8 @@ type RequestFunc func(r *http.Request)
 
 // GetResponse receives url as string, performs a get request and sends the
 // response
-func GetResponse(reqFunc ...RequestFunc) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func GetResponse(reqFunc ...RequestFunc) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			url, ok := v.(string)
 			if !ok {
@@ -46,32 +47,26 @@ func GetResponse(reqFunc ...RequestFunc) stream.Pipe {
 
 // Get receives a stream of urls performs a get request and sends the
 // content as []byte
-func Get(reqFunc ...RequestFunc) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
-		return p.Consume(func(v interface{}) error {
-			url, ok := v.(string)
-			if !ok {
-				return errors.New("input should be a string")
-			}
-			req, err := http.NewRequestWithContext(p.Context(), http.MethodGet, url, nil)
-			if err != nil {
-				return fmt.Errorf("Get: %w", err)
-			}
+func Get(reqFunc ...RequestFunc) strm.Pipe {
+	return strm.S(func(p strm.Sender, url string) error {
+		req, err := http.NewRequestWithContext(p.Context(), http.MethodGet, url, nil)
+		if err != nil {
+			return fmt.Errorf("Get: %w", err)
+		}
 
-			for _, fn := range reqFunc {
-				fn(req)
-			}
+		for _, fn := range reqFunc {
+			fn(req)
+		}
 
-			res, err := http.DefaultClient.Do(req)
-			if err != nil {
-				return err
-			}
-			defer res.Body.Close()
-			data, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				return fmt.Errorf("Get: %w", err)
-			}
-			return p.Send(data)
-		})
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		w := strmio.AsWriter(p)
+
+		_, err = io.Copy(w, res.Body)
+		return err
 	})
 }

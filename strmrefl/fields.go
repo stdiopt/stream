@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 )
 
 type Fields []interface{}
@@ -16,8 +16,8 @@ func F(f ...interface{}) Fields {
 // Field extracts A field from a struct and sends it forward
 // on a map it will walk through map
 // on a slice it's possible to have Field1.0.Field2
-func Field(f ...interface{}) stream.Pipe {
-	return stream.S(func(s stream.Sender, v interface{}) error {
+func Field(f ...interface{}) strm.Pipe {
+	return strm.S(func(s strm.Sender, v interface{}) error {
 		val, err := FieldOf(v, f...)
 		if err != nil {
 			return err
@@ -30,9 +30,9 @@ type (
 	FMap map[string]Fields
 )
 
-func FieldMap(target interface{}, fm FMap) stream.Pipe {
+func FieldMap(target interface{}, fm FMap) strm.Pipe {
 	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
-	return stream.S(func(p stream.Sender, v interface{}) error {
+	return strm.S(func(p strm.Sender, v interface{}) error {
 		sv := reflect.New(typ)
 		vv := sv.Elem()
 		for k, f := range fm {

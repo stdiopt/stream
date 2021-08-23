@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 )
 
 // Template receives any type and processes it through the template described
 // on s and produces []byte
-func Template(s string) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Template(s string) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		tmpl := template.New("/")
 		tmpl = tmpl.Option("missingkey=error")
 		tmpl = tmpl.Funcs(template.FuncMap{

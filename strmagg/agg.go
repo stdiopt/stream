@@ -4,9 +4,7 @@ package strmagg
 import (
 	"reflect"
 
-	"github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmrefl"
-	streamu "github.com/stdiopt/stream/strmutil"
+	strm "github.com/stdiopt/stream"
 )
 
 type AggEl struct {
@@ -22,34 +20,34 @@ type Group struct {
 }
 
 type aggOptField struct {
-	Name  string
-	Field string
-	Func  func(a, v interface{}) interface{}
+	Name      string
+	FieldFunc FieldFunc
+	Reduce    func(a, v interface{}) interface{}
 }
 
 type aggOptions struct {
 	name    string
-	groupBy func(interface{}) interface{}
+	groupBy FieldFunc
 	aggs    []aggOptField
 }
 
 type AggOptFunc func(a *aggOptions)
 
-func Aggregate(opt ...AggOptFunc) stream.Pipe {
+func Aggregate(opt ...AggOptFunc) strm.Pipe {
 	o := aggOptions{}
 	for _, fn := range opt {
 		fn(&o)
 	}
 
-	return stream.Func(func(p stream.Proc) error {
+	return strm.Func(func(p strm.Proc) error {
 		groupRef := map[interface{}]*Group{}
 		group := []*Group{}
 
 		err := p.Consume(func(v interface{}) error {
-			if v == streamu.End {
-				return p.Send(group)
+			key, err := o.groupBy(v)
+			if err != nil {
+				return err
 			}
-			key := o.groupBy(v)
 
 			g, ok := groupRef[key]
 			if !ok {
@@ -71,11 +69,11 @@ func Aggregate(opt ...AggOptFunc) stream.Pipe {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := strmrefl.FieldOf(v, a.Field)
+				fi, err := a.FieldFunc(v)
 				if err != nil {
 					continue
 				}
-				ar.Value = a.Func(ar.Value, fi)
+				ar.Value = a.Reduce(ar.Value, fi)
 			}
 
 			return nil
@@ -87,14 +85,14 @@ func Aggregate(opt ...AggOptFunc) stream.Pipe {
 	})
 }
 
-func GroupBy(name string, fn func(interface{}) interface{}) AggOptFunc {
+func GroupBy(name string, fn FieldFunc) AggOptFunc {
 	return func(a *aggOptions) {
 		a.name = name
 		a.groupBy = fn
 	}
 }
 
-func Reduce(name, field string, fni interface{}) AggOptFunc {
+func Reduce(name string, field FieldFunc, fni interface{}) AggOptFunc {
 	fn := makeReduceFunc(fni)
 	return func(a *aggOptions) {
 		a.aggs = append(a.aggs, aggOptField{name, field, fn})

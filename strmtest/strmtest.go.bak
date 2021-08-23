@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/strm"
 )
 
 // Case to be used with Test func and test pipelines.
 type Case struct {
-	PipeFunc    stream.Pipe
+	PipeFunc    strm.Pipe
 	SenderError error
 	CloserError error
 
@@ -40,7 +40,7 @@ func NewCase(opt ...CaseOptFunc) Case {
 	return c
 }
 
-func WithPipeFunc(p stream.Pipe) CaseOptFunc {
+func WithPipeFunc(p strm.Pipe) CaseOptFunc {
 	return func(c *Case) { c.PipeFunc = p }
 }
 
@@ -85,11 +85,8 @@ func (p *procMock) Context() context.Context {
 	return p.ctx
 }
 
-func (p *procMock) Cancel() {
-}
-
 func (p *procMock) Consume(fn interface{}) error {
-	p.ConsumeFunc = stream.MakeConsumerFunc(fn)
+	p.ConsumeFunc = strm.MakeConsumerFunc(fn)
 	return <-p.err
 }
 
@@ -102,9 +99,7 @@ func (tt Case) Test(t *testing.T) {
 
 	var got []interface{}
 
-	mock := &procMock{
-		ctx: context.Background(),
-		err: make(chan error),
+	mock := &strm.Override{
 		SendFunc: func(v interface{}) error {
 			if tt.SenderError != nil {
 				return tt.SenderError
@@ -129,18 +124,16 @@ func (tt Case) Test(t *testing.T) {
 
 	for i, m := range tt.Sends {
 		// Should we check send panic?
-		cr = &result{}
 
 		err := mock.ConsumeFunc(m.Value)
 		if !matchError(m.WantErrorRE, err) {
 			t.Errorf("wrong send#%d error\nwant: %v\n got: %v\n", i, m.WantErrorRE, err)
 		}
 
-		if diff := cmp.Diff(m.Want, cr.out); diff != "" {
+		if diff := cmp.Diff(m.Want, got); diff != "" {
 			t.Errorf("wrong output#%d\n- want + got\n%v", i, diff)
 		}
 	}
-	close(mock.err)
 
 	if closed != 1 {
 		t.Fatalf("wrong close count\nwant: %v\n got: %v\n", 1, closed)

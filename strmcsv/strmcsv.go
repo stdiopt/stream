@@ -6,13 +6,13 @@ import (
 	"io"
 	"regexp"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmio"
 )
 
 // Decode receives bytes and produces [][]string fields?
-func Decode(comma rune) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Decode(comma rune) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
 
@@ -39,8 +39,8 @@ func Decode(comma rune) stream.Pipe {
 	})
 }
 
-func DecodeMatch(comma rune, fields ...string) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func DecodeMatch(comma rune, fields ...string) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
 		csvReader := csv.NewReader(rd)
@@ -91,8 +91,8 @@ func DecodeMatch(comma rune, fields ...string) stream.Pipe {
 	})
 }
 
-func DecodeAsJSON(comma rune) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func DecodeAsJSON(comma rune) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
 

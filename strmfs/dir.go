@@ -1,15 +1,16 @@
-package strmio
+package strmfs
 
 import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 )
 
-// ListFiles recursively and each send filename
-func ListFiles(pattern string) stream.Pipe {
-	return stream.S(func(s stream.Sender, path string) error {
+// ListFiles will list and send file names on a given a path, path will be joined using
+// filepath.Join.
+func ListFiles(pattern string, params ...interface{}) strm.Pipe {
+	return strm.S(func(s strm.Sender, path string) error {
 		return filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err

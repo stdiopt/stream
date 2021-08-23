@@ -5,7 +5,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmio"
 )
 
@@ -19,14 +19,14 @@ import (
 // produce different types map[string]interface{}, []interface{}, string, float64
 // as the regular native json.Unmarshal
 // if the input is not bytes it will error and cancel the pipeline
-func Decode(v interface{}) stream.Pipe {
+func Decode(v interface{}) strm.Pipe {
 	if v == nil {
 		var l interface{}
 		v = &l
 	}
 	typ := reflect.Indirect(reflect.ValueOf(v)).Type()
 
-	return stream.Func(func(p stream.Proc) error {
+	return strm.Func(func(p strm.Proc) error {
 		rd := strmio.AsReader(p)
 		defer rd.Close()
 		dec := json.NewDecoder(rd)
@@ -56,8 +56,8 @@ func Decode(v interface{}) stream.Pipe {
 	})
 }
 
-func Encode() stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Encode() strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		wr := strmio.AsWriter(p)
 		enc := json.NewEncoder(wr)
 
@@ -67,8 +67,8 @@ func Encode() stream.Pipe {
 
 // Dump encodes the input as json into the writer
 // TODO: {lpf} rename, this was meant for debug but might be good for general use
-func Dump(w io.Writer) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Dump(w io.Writer) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return p.Consume(func(v interface{}) error {

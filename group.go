@@ -3,7 +3,6 @@ package stream
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 )
 
@@ -37,11 +36,11 @@ func (g *pGroup) Go(f func() error) {
 		defer g.wg.Done()
 
 		err := func() (err error) {
-			defer func() {
+			/*defer func() {
 				if p := recover(); p != nil {
 					err = fmt.Errorf("%v", p)
 				}
-			}()
+			}()*/
 			err = f()
 			// Not sure if this is the ideal place to check for Break
 			// the function just returns and the stream compositors would

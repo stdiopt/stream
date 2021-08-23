@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 )
 
 // Counter provides a count diagnostics of message passed
@@ -57,7 +57,7 @@ func (c *Counter) writeCount() {
 	fmt.Fprintf(c.w, "Processed messages: %v %.2f/s\n", c.counts, perSec)
 }
 
-func (c *Counter) StreamFunc(p stream.Proc) error {
+func (c *Counter) StreamFunc(p strm.Proc) error {
 	defer c.WriteCount()
 	return p.Consume(func(v interface{}) error {
 		c.Add(v)
@@ -65,15 +65,15 @@ func (c *Counter) StreamFunc(p stream.Proc) error {
 	})
 }
 
-func Count(d time.Duration) stream.Pipe {
+func Count(d time.Duration) strm.Pipe {
 	return NewCounter(os.Stderr, d).StreamFunc
 }
 
-func Debug(w io.Writer) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Debug(w io.Writer) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		defer log.Println("DEBUG: finished")
 		return p.Consume(func(v interface{}) error {
-			stream.DebugProc(w, p, v)
+			strm.DebugProc(w, p, v)
 			err := p.Send(v)
 			if err != nil {
 				log.Println("DEBUG: send err:", err)

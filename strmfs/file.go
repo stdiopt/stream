@@ -1,16 +1,17 @@
-package strmio
+package strmfs
 
 import (
 	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmio"
 )
 
 // WriteFile create a file in path and writes to it.
-func WriteFile(path string) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func WriteFile(path string) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		closefn := func() {}
 		defer closefn()
 
@@ -40,9 +41,9 @@ func WriteFile(path string) stream.Pipe {
 	})
 }
 
-func ReadFile() stream.Pipe {
-	return stream.S(func(s stream.Sender, path string) error {
-		w := AsWriter(s)
+func ReadFile() strm.Pipe {
+	return strm.S(func(s strm.Sender, path string) error {
+		w := strmio.AsWriter(s)
 		f, err := os.Open(path)
 		if err != nil {
 			return err

@@ -9,14 +9,14 @@ import (
 	"github.com/fraugster/parquet-go/floor"
 	"github.com/fraugster/parquet-go/parquet"
 	"github.com/fraugster/parquet-go/parquetschema"
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmio"
 )
 
 // DecodeFile receives a string path and outputs T.
-func DecodeFile(sample interface{}) stream.Pipe {
+func DecodeFile(sample interface{}) strm.Pipe {
 	typ := reflect.TypeOf(sample)
-	return stream.S(func(p stream.Sender, path string) error {
+	return strm.S(func(p strm.Sender, path string) error {
 		f, err := os.Open(path)
 		if err != nil {
 			return err
@@ -40,8 +40,8 @@ func DecodeFile(sample interface{}) stream.Pipe {
 }
 
 // Encode receives a T and outputs encoded parquet in []byte
-func Encode(sample interface{}) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Encode(sample interface{}) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		w := strmio.AsWriter(p)
 		// Setup parquet Writer
 		pw := goparquet.NewFileWriter(w,

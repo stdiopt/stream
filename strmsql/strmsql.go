@@ -6,23 +6,9 @@ import (
 	"fmt"
 
 	"github.com/lib/pq"
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmrefl"
 )
-
-type FieldFunc = func(interface{}) (interface{}, error)
-
-func Field(f ...interface{}) FieldFunc {
-	return func(v interface{}) (interface{}, error) {
-		return strmrefl.FieldOf(v, f...)
-	}
-}
-
-func Value(f ...interface{}) FieldFunc {
-	return func(v interface{}) (interface{}, error) {
-		return f, nil
-	}
-}
 
 type Dialect int
 
@@ -56,21 +42,13 @@ func (d Dialect) ExecInsertQry(db *sql.DB, qry string, nparams int, batchParams 
 	return db.Exec(qryBuf.String(), batchParams...)
 }
 
-func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...FieldFunc) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		batchParams := []interface{}{}
 		err := p.Consume(func(v interface{}) error {
-			pparams := make([]interface{}, 0, len(params))
-			for _, pp := range params {
-				res, err := pp(v)
-				if err != nil {
-					return err
-				}
-				if r, ok := res.([]interface{}); ok {
-					pparams = append(pparams, r...)
-					continue
-				}
-				pparams = append(pparams, res)
+			pparams, err := solveParams(v, params...)
+			if err != nil {
+				return err
 			}
 			batchParams = append(batchParams, pparams...)
 
@@ -93,9 +71,9 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...Fi
 	})
 }
 
-func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...FieldFunc) stream.Pipe {
+func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...interface{}) strm.Pipe {
 	// PSQL only for now?!
-	return stream.Func(func(p stream.Proc) error {
+	return strm.Func(func(p strm.Proc) error {
 		tx, err := db.Begin()
 		if err != nil {
 			return err
@@ -106,17 +84,9 @@ func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ..
 		}
 		defer tx.Commit()
 		err = p.Consume(func(v interface{}) error {
-			pparams := make([]interface{}, 0, len(params))
-			for _, pp := range params {
-				res, err := pp(v)
-				if err != nil {
-					return err
-				}
-				if r, ok := res.([]interface{}); ok {
-					pparams = append(pparams, r...)
-					continue
-				}
-				pparams = append(pparams, res)
+			pparams, err := solveParams(v, params...)
+			if err != nil {
+				return err
 			}
 			if _, err := stmt.Exec(pparams...); err != nil {
 				return fmt.Errorf("stmt.Exec: %w", err)
@@ -132,23 +102,45 @@ func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ..
 	})
 }
 
-func (d Dialect) Exec(db *sql.DB, qry string, params ...FieldFunc) stream.Pipe {
-	return stream.S(func(p stream.Sender, v interface{}) error {
-		pparams := make([]interface{}, 0, len(params))
-		for _, pp := range params {
-			res, err := pp(v)
-			if err != nil {
-				return err
-			}
-			if r, ok := res.([]interface{}); ok {
-				pparams = append(pparams, r...)
-				continue
-			}
-			pparams = append(pparams, res)
+func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) strm.Pipe {
+	return strm.S(func(p strm.Sender, v interface{}) error {
+		pparams, err := solveParams(v, params...)
+		if err != nil {
+			return err
 		}
 		if _, err := db.Exec(qry, pparams...); err != nil {
 			return err
 		}
 		return p.Send(v)
 	})
+}
+
+type FieldFunc = func(interface{}) (interface{}, error)
+
+func Field(f ...interface{}) FieldFunc {
+	return func(v interface{}) (interface{}, error) {
+		return strmrefl.FieldOf(v, f...)
+	}
+}
+
+func solveParams(v interface{}, ps ...interface{}) ([]interface{}, error) {
+	var res []interface{}
+	for _, p := range ps {
+		switch p := p.(type) {
+		case FieldFunc:
+			v, err := p(v)
+			if err != nil {
+				return nil, err
+			}
+			if v, ok := v.([]interface{}); ok {
+				res = append(res, v...)
+			}
+			res = append(res, v)
+		case []interface{}:
+			res = append(res, p...)
+		default:
+			res = append(res, p)
+		}
+	}
+	return res, nil
 }

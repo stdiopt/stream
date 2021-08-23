@@ -1,4 +1,4 @@
-package strmio
+package strmfs
 
 import (
 	"testing"

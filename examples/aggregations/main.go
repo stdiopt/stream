@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/gohxs/prettylog/global"
 	"github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmagg"
 	"github.com/stdiopt/stream/strmhttp"
@@ -28,25 +29,25 @@ func main() {
 		// it produces a strmagg.Group that contains a slice of reduced fields
 		strmagg.Aggregate(
 			// manually processes the above message and returns the month of birth as the key for the group
-			strmagg.GroupBy("birth months", func(v interface{}) interface{} {
-				dob, err := strmrefl.FieldOf(v, "dob.date")
+			strmagg.GroupBy("birth months", func(v interface{}) (interface{}, error) {
+				dob, err := strmrefl.FieldOf(v, "dob", "date")
 				if err != nil {
-					return ""
+					return nil, err
 				}
 				tm, err := time.Parse(time.RFC3339, dob.(string))
 				if err != nil {
-					return ""
+					return nil, err
 				}
 
-				return tm.Month().String()
+				return tm.Month().String(), nil
 			}),
 			// Processes field "name" of the input and appends into a slice
-			strmagg.Reduce("full name", "name", func(a []string, v map[string]interface{}) []string {
+			strmagg.Reduce("full name", strmagg.Field("name"), func(a []string, v map[string]interface{}) []string {
 				return append(a, fmt.Sprintf("%s %s", v["first"], v["last"]))
 			}),
 			// Processes field "dob.age" from the input compares to the last returned one
 			// and returns the maximum (older)
-			strmagg.Reduce("older", "dob.age", func(a *float64, v float64) *float64 {
+			strmagg.Reduce("older", strmagg.Field("dob", "age"), func(a *float64, v float64) *float64 {
 				if a == nil || v > *a {
 					return &v
 				}

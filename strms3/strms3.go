@@ -8,12 +8,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/stdiopt/stream"
+	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmio"
 )
 
-func Uploader(s3url string, conf *aws.Config) stream.Pipe {
-	return stream.Func(func(p stream.Proc) error {
+func Uploader(s3url string, conf *aws.Config) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
 		sess, err := session.NewSession()
 		if err != nil {
 			return err
