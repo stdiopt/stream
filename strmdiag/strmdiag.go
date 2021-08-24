@@ -3,7 +3,6 @@ package strmdiag
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -67,18 +66,4 @@ func (c *Counter) StreamFunc(p strm.Proc) error {
 
 func Count(d time.Duration) strm.Pipe {
 	return NewCounter(os.Stderr, d).StreamFunc
-}
-
-func Debug(w io.Writer) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		defer log.Println("DEBUG: finished")
-		return p.Consume(func(v interface{}) error {
-			strm.DebugProc(w, p, v)
-			err := p.Send(v)
-			if err != nil {
-				log.Println("DEBUG: send err:", err)
-			}
-			return err
-		})
-	})
 }

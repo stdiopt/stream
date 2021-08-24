@@ -5,7 +5,16 @@ import (
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmrefl"
 )
+
+type FieldFunc = func(interface{}) (interface{}, error)
+
+func Field(f ...interface{}) FieldFunc {
+	return func(v interface{}) (interface{}, error) {
+		return strmrefl.FieldOf(v, f...)
+	}
+}
 
 type AggEl struct {
 	Field string
@@ -20,9 +29,9 @@ type Group struct {
 }
 
 type aggOptField struct {
-	Name      string
-	FieldFunc FieldFunc
-	Reduce    func(a, v interface{}) interface{}
+	Name       string
+	FieldFunc  FieldFunc
+	ReduceFunc func(a, v interface{}) interface{}
 }
 
 type aggOptions struct {
@@ -73,7 +82,7 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 				if err != nil {
 					continue
 				}
-				ar.Value = a.Reduce(ar.Value, fi)
+				ar.Value = a.ReduceFunc(ar.Value, fi)
 			}
 
 			return nil
