@@ -40,19 +40,26 @@ func DecodeFile(sample interface{}) strm.Pipe {
 }
 
 // Encode receives a T and outputs encoded parquet in []byte
-func Encode(sample interface{}) strm.Pipe {
+func Encode() strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
-		w := strmio.AsWriter(p)
-		// Setup parquet Writer
-		pw := goparquet.NewFileWriter(w,
-			goparquet.WithSchemaDefinition(schemaFrom(sample)),
-			goparquet.WithCompressionCodec(parquet.CompressionCodec_SNAPPY),
-		)
-		defer pw.Close()
-		fw := floor.NewWriter(pw)
-		defer fw.Close()
+		var fw *floor.Writer
+		closefn := func() {}
+		defer func() { closefn() }()
 
 		return p.Consume(func(v interface{}) error {
+			if fw == nil {
+				w := strmio.AsWriter(p)
+				// Setup parquet Writer
+				pw := goparquet.NewFileWriter(w,
+					goparquet.WithSchemaDefinition(schemaFrom(v)),
+					goparquet.WithCompressionCodec(parquet.CompressionCodec_SNAPPY),
+				)
+				fw = floor.NewWriter(pw)
+				closefn = func() {
+					fw.Close()
+					pw.Close()
+				}
+			}
 			return fw.Write(v)
 		})
 	})

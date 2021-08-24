@@ -115,9 +115,9 @@ func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) strm.Pipe {
 	})
 }
 
-type FieldFunc = func(interface{}) (interface{}, error)
+type ArgFunc = func(interface{}) (interface{}, error)
 
-func Field(f ...interface{}) FieldFunc {
+func Field(f ...interface{}) ArgFunc {
 	return func(v interface{}) (interface{}, error) {
 		return strmrefl.FieldOf(v, f...)
 	}
@@ -127,13 +127,14 @@ func solveParams(v interface{}, ps ...interface{}) ([]interface{}, error) {
 	var res []interface{}
 	for _, p := range ps {
 		switch p := p.(type) {
-		case FieldFunc:
+		case ArgFunc:
 			v, err := p(v)
 			if err != nil {
 				return nil, err
 			}
 			if v, ok := v.([]interface{}); ok {
 				res = append(res, v...)
+				continue
 			}
 			res = append(res, v)
 		case []interface{}:
