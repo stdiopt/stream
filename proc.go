@@ -124,6 +124,7 @@ type Consumer interface {
 type Sender interface {
 	Context() context.Context
 	Send(interface{}) error
+	close()
 }
 
 // proc implements the Proc interface
