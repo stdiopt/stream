@@ -8,6 +8,16 @@ import (
 	"github.com/bwmarrin/snowflake"
 )
 
+type Consumer interface {
+	Consume(interface{}) error
+	cancel() // do we need cancel
+}
+
+type Sender interface {
+	Context() context.Context
+	Send(interface{}) error
+}
+
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
 // func.
 type Proc interface {
@@ -114,17 +124,6 @@ func S(fn interface{}) Pipe {
 		})
 		return wrapStrmError(pname, err)
 	}
-}
-
-type Consumer interface {
-	Consume(interface{}) error
-	cancel() // do we need cancel
-}
-
-type Sender interface {
-	Context() context.Context
-	Send(interface{}) error
-	close()
 }
 
 // proc implements the Proc interface
