@@ -30,22 +30,3 @@ func matchPanic(match string, p interface{}) bool {
 	re := regexp.MustCompile(match)
 	return re.MatchString(str)
 }
-
-type testSender struct {
-	sendFunc  func(interface{}) error
-	closeFunc func() error
-}
-
-func (s testSender) Send(v interface{}) error {
-	if s.sendFunc != nil {
-		return s.sendFunc(v)
-	}
-	return nil
-}
-
-func (s testSender) Close() error {
-	if s.closeFunc != nil {
-		return s.closeFunc()
-	}
-	return nil
-}

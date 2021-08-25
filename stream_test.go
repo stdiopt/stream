@@ -100,7 +100,7 @@ func TestLine(t *testing.T) {
 				},
 			}
 
-			err := tt.Pipe.run(ctx, capture, capture)
+			err := tt.Pipe.Run(ctx, capture, capture)
 			if !matchError(tt.WantErrorRE, err) {
 				t.Errorf("wrong error\nwant: %v\n got: %v\n", tt.WantErrorRE, err)
 			}
@@ -198,7 +198,7 @@ func TestWorkers(t *testing.T) {
 				},
 			}
 			mark := time.Now()
-			err := tt.Pipe.run(ctx, sender, sender)
+			err := tt.Pipe.Run(ctx, sender, sender)
 			if !matchError(tt.WantErrorRE, err) {
 				t.Errorf("wrong error\nwant: %v\n got: %v\n", tt.WantErrorRE, err)
 			}

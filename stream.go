@@ -47,14 +47,14 @@ func Line(pps ...Pipe) Pipe {
 			eg.Go(func() error {
 				defer l.cancel()
 				defer ch.close()
-				return pp.run(ctx, l, ch)
+				return pp.Run(ctx, l, ch)
 			})
 			last = ch
 		}
 		pp := pps[len(pps)-1]
 		eg.Go(func() error {
 			defer last.cancel()
-			return pp.run(ctx, last, p)
+			return pp.Run(ctx, last, p)
 		})
 		return eg.Wait()
 	}}
@@ -70,7 +70,7 @@ func Tee(pps ...Pipe) Pipe {
 			ch := pp.newChan(ctx, 0)
 			pp := pp
 			eg.Go(func() error {
-				return pp.run(ctx, ch, p)
+				return pp.Run(ctx, ch, p)
 			})
 			chs[i] = ch
 		}
@@ -103,7 +103,7 @@ func Workers(n int, pps ...Pipe) Pipe {
 		eg, ctx := pGroupWithContext(p.Context())
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
-				return pp.run(ctx, p, p)
+				return pp.Run(ctx, p, p)
 			})
 		}
 		return eg.Wait()
@@ -123,7 +123,7 @@ func Buffer(n int, pps ...Pipe) Pipe {
 		})
 		eg.Go(func() error {
 			defer ch.cancel()
-			return pp.run(ctx, ch, p)
+			return pp.Run(ctx, ch, p)
 		})
 		return eg.Wait()
 	}}
@@ -136,5 +136,5 @@ func Run(pps ...Pipe) error {
 
 // RunWithContext runs the stream with a context.
 func RunWithContext(ctx context.Context, pps ...Pipe) error {
-	return Line(pps...).run(ctx, nil, nil)
+	return Line(pps...).Run(ctx, nil, nil)
 }

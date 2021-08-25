@@ -2,10 +2,18 @@ package strmutil
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	strm "github.com/stdiopt/stream"
 )
+
+var stdout = io.Writer(os.Stdout)
+
+func SetOutput(w io.Writer) {
+	stdout = w
+}
 
 // Limit passes N values and breaks the pipeline.
 func Limit(n int) strm.Pipe {
@@ -92,12 +100,15 @@ func Pass(pass strm.Sender) strm.Pipe {
 
 // Print value with prefix.
 func Print(prefix string) strm.Pipe {
+	if prefix != "" {
+		prefix = fmt.Sprintf("[%s] ", prefix)
+	}
 	return strm.S(func(p strm.Sender, v interface{}) error {
 		switch v := v.(type) {
 		case []byte:
-			fmt.Printf("[%s] %v\n", prefix, string(v))
+			fmt.Fprintf(stdout, "%s%v\n", prefix, string(v))
 		default:
-			fmt.Printf("[%s] %v\n", prefix, v)
+			fmt.Fprintf(stdout, "%s%v\n", prefix, v)
 		}
 		return p.Send(v)
 	})
