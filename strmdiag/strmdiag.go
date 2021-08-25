@@ -56,14 +56,13 @@ func (c *Counter) writeCount() {
 	fmt.Fprintf(c.w, "Processed messages: %v %.2f/s\n", c.counts, perSec)
 }
 
-func (c *Counter) StreamFunc(p strm.Proc) error {
-	defer c.WriteCount()
-	return p.Consume(func(v interface{}) error {
-		c.Add(v)
-		return p.Send(v)
-	})
-}
-
 func Count(d time.Duration) strm.Pipe {
-	return NewCounter(os.Stderr, d).StreamFunc
+	return strm.Func(func(p strm.Proc) error {
+		c := NewCounter(os.Stderr, d)
+		defer c.WriteCount()
+		return p.Consume(func(v interface{}) error {
+			c.Add(v)
+			return p.Send(v)
+		})
+	})
 }

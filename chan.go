@@ -29,10 +29,12 @@ func (c procChan) Context() context.Context {
 // Send sends v to the underlying channel if context is cancelled it will return
 // the underlying ctx.Err()
 func (c procChan) Send(v interface{}) error {
-	// Check for done first
+	// Check for canceled first then try to send
 	select {
 	case <-c.done:
 		return ErrBreak
+	case <-c.ctx.Done():
+		return c.ctx.Err()
 	default:
 	}
 
