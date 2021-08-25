@@ -10,24 +10,6 @@ import (
 	strm "github.com/stdiopt/stream"
 )
 
-type Capturer struct {
-	t    *testing.T
-	pipe strm.Pipe
-}
-
-func New(t *testing.T, pipe strm.Pipe) *Capturer {
-	return &Capturer{t, pipe}
-}
-
-func (c *Capturer) Send(v ...interface{}) *Run {
-	// Schedule send
-	return &Run{
-		pipe:  c.pipe,
-		t:     c.t,
-		sends: v,
-	}
-}
-
 type wantMode int
 
 const (
@@ -35,126 +17,181 @@ const (
 	wantModeAny
 )
 
-type Run struct {
-	pipe        strm.Pipe
-	t           *testing.T
-	sends       []interface{}
-	senderError error
+type Capturer struct {
+	t     *testing.T
+	pipe  strm.Pipe
+	sends []*Send
 
-	wantDuration time.Duration
-	wantMode     wantMode
-	wantOrdered  []interface{}
-	wantAny      map[interface{}]int
-	wantErrorRE  string
+	wantMode        wantMode
+	want            []interface{}
+	wantMaxDuration time.Duration
+	wantMinDuration time.Duration
+	wantErrorRE     string
 }
 
-func (r *Run) SenderError(err error) *Run {
-	r.senderError = err
-	return r
-}
-
-func (r *Run) Expect(v ...interface{}) *Run {
-	if r.wantMode != 0 {
-		r.t.Fatal("expect already used")
+func New(t *testing.T, pipe strm.Pipe) *Capturer {
+	return &Capturer{
+		t:    t,
+		pipe: pipe,
 	}
-	r.wantMode = wantModeOrdered
-	r.wantOrdered = append(r.wantOrdered, v...)
-	return r
 }
 
-func (r *Run) ExpectNonOrdered(v ...interface{}) *Run {
-	if r.wantMode != 0 {
-		r.t.Fatal("expect already used")
+func (c *Capturer) Send(v interface{}) *Send {
+	s := &Send{
+		Capturer: c,
+		value:    v,
 	}
-	r.wantMode = wantModeAny
-	r.wantAny = map[interface{}]int{}
-	for _, vv := range v {
-		r.wantAny[vv]++
+	c.sends = append(c.sends, s)
+
+	return s
+}
+
+func (c *Capturer) ExpectMaxDuration(d time.Duration) *Capturer {
+	c.wantMaxDuration = d
+	return c
+}
+
+func (c *Capturer) ExpectMinDuration(d time.Duration) *Capturer {
+	c.wantMinDuration = d
+	return c
+}
+
+func (c *Capturer) ExpectError(m string) *Capturer {
+	c.wantErrorRE = m
+	return c
+}
+
+func (c *Capturer) ExpectFull(v ...interface{}) *Capturer {
+	c.wantMode = wantModeOrdered
+	c.want = v
+	return c
+}
+
+func (c *Capturer) ExpectAnyFull(v ...interface{}) *Capturer {
+	c.wantMode = wantModeAny
+	c.want = v
+	return c
+}
+
+func (c *Capturer) Run() {
+	c.t.Helper()
+	type result struct {
+		send *Send
+		got  []interface{}
 	}
-	return r
-}
 
-func (r *Run) ExpectDuration(d time.Duration) *Run {
-	r.wantDuration = d
-	return r
-}
-
-func (r *Run) ExpectMatchError(estr string) *Run {
-	r.wantErrorRE = estr
-	return r
-}
-
-func (r *Run) Run() {
-	r.t.Helper()
-	var got []interface{}
-	var gotAny map[interface{}]int
-
-	in := make(chan interface{})
-	go func() {
-		defer close(in)
-		for _, m := range r.sends {
-			in <- m
-		}
-	}()
-	out := make(chan interface{})
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for v := range out {
-			switch r.wantMode {
-			case wantModeOrdered:
-				got = append(got, v)
-			case wantModeAny:
-				if gotAny == nil {
-					gotAny = map[interface{}]int{}
-				}
-				gotAny[v]++
-			}
-		}
-	}()
-
+	var cur *result
+	var results []*result
+	var gotFull []interface{}
 	capturer := strm.Override{
 		ConsumeFunc: func(fn strm.ConsumerFunc) error {
-			for v := range in {
-				if err := fn(v); err != nil {
+			for _, v := range c.sends {
+				cur = &result{send: v}
+				results = append(results, cur)
+				if err := fn(v.value); err != nil {
 					return err
 				}
 			}
 			return nil
 		},
 		SendFunc: func(v interface{}) error {
-			if r.senderError != nil {
-				return r.senderError
+			if cur.send.senderError != nil {
+				return cur.send.senderError
 			}
-			out <- v
+			cur.got = append(cur.got, v)
+			gotFull = append(gotFull, v)
 			return nil
 		},
 	}
+
 	mark := time.Now()
-	func() {
-		defer close(out)
-		err := r.pipe.Run(context.TODO(), capturer, capturer)
-		if !matchError(r.wantErrorRE, err) {
-			r.t.Errorf("wrong error\nwant: %v\n got: %v\n", r.wantErrorRE, err)
-		}
-	}()
-	<-done
+	err := c.pipe.Run(context.TODO(), capturer, capturer)
+	if !matchError(c.wantErrorRE, err) {
+		c.t.Errorf("wrong error\nwant: %v\n got: %v\n", c.wantErrorRE, err)
+	}
 
 	dur := time.Since(mark)
-	if r.wantDuration != 0 && dur > r.wantDuration {
-		r.t.Errorf("exceed time limit\nwant: <%v\n got: >%v\n", r.wantDuration, dur)
+	if c.wantMaxDuration != 0 && dur > c.wantMaxDuration {
+		c.t.Errorf("exceed time limit\nwant: <%v\n got: %v\n", c.wantMaxDuration, dur)
 	}
 
-	switch r.wantMode {
-	case wantModeOrdered:
-		if diff := cmp.Diff(r.wantOrdered, got); diff != "" {
-			r.t.Error("wrong output\n- want + got\n", diff)
-		}
-	case wantModeAny:
-		if diff := cmp.Diff(r.wantAny, got); diff != "" {
-			r.t.Error("wrong output\n- want + got\n", diff)
+	if c.wantMinDuration != 0 && dur < c.wantMinDuration {
+		c.t.Errorf("below duration\nwant: >%v\n got: %v\n", c.wantMinDuration, dur)
+	}
+
+	// Per send
+	for _, r := range results {
+		switch r.send.wantMode {
+		case wantModeOrdered:
+			if diff := cmp.Diff(r.got, r.send.want); diff != "" {
+				c.t.Error("wrong output\n- want + got\n", diff)
+			}
+		case wantModeAny:
+			got := map[interface{}]int{}
+			for _, v := range r.got {
+				got[v]++
+			}
+			want := map[interface{}]int{}
+			for _, v := range r.send.want {
+				want[v]++
+			}
+			if diff := cmp.Diff(got, want); diff != "" {
+				c.t.Error("wrong any output\n- want + got\n", diff)
+			}
 		}
 	}
+
+	// Full pipe results
+	switch c.wantMode {
+	case wantModeOrdered:
+		if diff := cmp.Diff(gotFull, c.want); diff != "" {
+			c.t.Error("wrong full output\n- want + got\n", diff)
+		}
+	case wantModeAny:
+		got := map[interface{}]int{}
+		for _, v := range gotFull {
+			got[v]++
+		}
+		want := map[interface{}]int{}
+		for _, v := range c.want {
+			want[v]++
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			c.t.Error("wrong full any output\n- want + got\n", diff)
+		}
+	}
+}
+
+type Send struct {
+	*Capturer
+	value       interface{}
+	senderError error
+
+	wantMode wantMode
+	want     []interface{}
+}
+
+func (s *Send) Expect(v ...interface{}) *Capturer {
+	if s.wantMode != 0 {
+		s.t.Fatal("expect already used")
+	}
+	s.wantMode = wantModeOrdered
+	s.want = v
+	return s.Capturer
+}
+
+func (s *Send) ExpectAny(v ...interface{}) *Capturer {
+	if s.wantMode != 0 {
+		s.t.Fatal("expect already used")
+	}
+	s.wantMode = wantModeAny
+	s.want = v
+	return s.Capturer
+}
+
+func (s *Send) WithSenderError(err error) *Send {
+	s.senderError = err
+	return s
 }
 
 // Try to do in the Send Expect way
