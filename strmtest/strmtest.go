@@ -123,7 +123,7 @@ func (c *Capturer) Run() {
 	for _, r := range results {
 		switch r.send.wantMode {
 		case wantModeOrdered:
-			if diff := cmp.Diff(r.got, r.send.want); diff != "" {
+			if diff := cmp.Diff(r.send.want, r.got); diff != "" {
 				c.t.Error("wrong output\n- want + got\n", diff)
 			}
 		case wantModeAny:
@@ -135,7 +135,7 @@ func (c *Capturer) Run() {
 			for _, v := range r.send.want {
 				want[v]++
 			}
-			if diff := cmp.Diff(got, want); diff != "" {
+			if diff := cmp.Diff(want, got); diff != "" {
 				c.t.Error("wrong any output\n- want + got\n", diff)
 			}
 		}
@@ -144,7 +144,7 @@ func (c *Capturer) Run() {
 	// Full pipe results
 	switch c.wantMode {
 	case wantModeOrdered:
-		if diff := cmp.Diff(gotFull, c.want); diff != "" {
+		if diff := cmp.Diff(c.want, gotFull); diff != "" {
 			c.t.Error("wrong full output\n- want + got\n", diff)
 		}
 	case wantModeAny:

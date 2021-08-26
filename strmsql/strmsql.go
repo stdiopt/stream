@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/lib/pq"
 	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmrefl"
 )
@@ -52,7 +51,7 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 			}
 			batchParams = append(batchParams, pparams...)
 
-			if len(batchParams)/len(params) > batchSize {
+			if len(batchParams)/len(params) >= batchSize {
 				if _, err := d.ExecInsertQry(db, qry, len(params), batchParams...); err != nil {
 					return err
 				}
@@ -71,37 +70,6 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 	})
 }
 
-func (d Dialect) BulkInsert(db *sql.DB, table string, fields []string, params ...interface{}) strm.Pipe {
-	// PSQL only for now?!
-	return strm.Func(func(p strm.Proc) error {
-		tx, err := db.Begin()
-		if err != nil {
-			return err
-		}
-		stmt, err := tx.Prepare(pq.CopyIn(table, fields...))
-		if err != nil {
-			return err
-		}
-		defer tx.Commit()
-		err = p.Consume(func(v interface{}) error {
-			pparams, err := solveParams(v, params...)
-			if err != nil {
-				return err
-			}
-			if _, err := stmt.Exec(pparams...); err != nil {
-				return fmt.Errorf("stmt.Exec: %w", err)
-			}
-			return p.Send(v)
-		})
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-		_, err = stmt.Exec()
-		return err
-	})
-}
-
 func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) strm.Pipe {
 	return strm.S(func(p strm.Sender, v interface{}) error {
 		pparams, err := solveParams(v, params...)
@@ -115,30 +83,24 @@ func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) strm.Pipe {
 	})
 }
 
-type ArgFunc = func(interface{}) (interface{}, error)
-
-func Field(f ...interface{}) ArgFunc {
+func Field(f ...interface{}) argFunc {
 	return func(v interface{}) (interface{}, error) {
 		return strmrefl.FieldOf(v, f...)
 	}
 }
 
+type argFunc = func(interface{}) (interface{}, error)
+
 func solveParams(v interface{}, ps ...interface{}) ([]interface{}, error) {
 	var res []interface{}
 	for _, p := range ps {
 		switch p := p.(type) {
-		case ArgFunc:
+		case argFunc:
 			v, err := p(v)
 			if err != nil {
 				return nil, err
 			}
-			if v, ok := v.([]interface{}); ok {
-				res = append(res, v...)
-				continue
-			}
 			res = append(res, v)
-		case []interface{}:
-			res = append(res, p...)
 		default:
 			res = append(res, p)
 		}
