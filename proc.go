@@ -8,6 +8,8 @@ import (
 	"github.com/bwmarrin/snowflake"
 )
 
+var errTyp = reflect.TypeOf((*error)(nil)).Elem()
+
 // proc implements the Proc interface
 type proc struct {
 	id  snowflake.ID
@@ -76,7 +78,11 @@ func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 	fnVal := reflect.ValueOf(fn)
 	fnTyp := fnVal.Type()
 	if fnTyp.NumIn() != 1 {
-		panic("should have 1 params")
+		panic("func should have 1 params")
+	}
+
+	if fnTyp.NumOut() != 1 || fnTyp.Out(0) != errTyp {
+		panic("func should only have an error return")
 	}
 	args := make([]reflect.Value, 1)
 	return func(v interface{}) error {

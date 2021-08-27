@@ -30,6 +30,7 @@ func (c procChan) Context() context.Context {
 // the underlying ctx.Err()
 func (c procChan) Send(v interface{}) error {
 	// Check for canceled first then try to send
+	// this way we avoid sending unexpectedly
 	select {
 	case <-c.done:
 		return ErrBreak
@@ -64,7 +65,11 @@ func (c procChan) Consume(ifn interface{}) error {
 			if !ok {
 				return nil
 			}
-			if err := fn(v); err != nil {
+			err := fn(v)
+			if err == ErrBreak {
+				return nil
+			}
+			if err != nil {
 				return err
 			}
 		}

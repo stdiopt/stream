@@ -3,6 +3,8 @@ package stream
 
 import (
 	"context"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Consumer interface {
@@ -36,7 +38,7 @@ func Line(pps ...Pipe) Pipe {
 		return pps[0]
 	}
 	return pipe{func(p Proc) error {
-		eg, ctx := pGroupWithContext(p.Context())
+		eg, ctx := errgroup.WithContext(p.Context())
 		last := Consumer(p) // consumer should be nil
 		for _, pp := range pps[:len(pps)-1] {
 			ch := pp.newChan(ctx, 0)
@@ -63,7 +65,7 @@ func Line(pps ...Pipe) Pipe {
 // Tee consumes and passes the consumed message to all pfs ProcFuncs.
 func Tee(pps ...Pipe) Pipe {
 	return pipe{func(p Proc) error {
-		eg, ctx := pGroupWithContext(p.Context())
+		eg, ctx := errgroup.WithContext(p.Context())
 		// iproc
 		chs := make([]Proc, len(pps))
 		for i, pp := range pps {
@@ -100,7 +102,9 @@ func Workers(n int, pps ...Pipe) Pipe {
 		n = 1
 	}
 	return pipe{func(p Proc) error {
-		eg, ctx := pGroupWithContext(p.Context())
+		// Wrap in a channel here? for output?
+		// since sender might be something else
+		eg, ctx := errgroup.WithContext(p.Context())
 		for i := 0; i < n; i++ {
 			eg.Go(func() error {
 				return pp.Run(ctx, p, p)
@@ -114,7 +118,7 @@ func Workers(n int, pps ...Pipe) Pipe {
 func Buffer(n int, pps ...Pipe) Pipe {
 	pp := Line(pps...)
 	return pipe{func(p Proc) error {
-		eg, ctx := pGroupWithContext(p.Context())
+		eg, ctx := errgroup.WithContext(p.Context())
 		ch := pp.newChan(ctx, n)
 		eg.Go(func() error {
 			defer ch.close()

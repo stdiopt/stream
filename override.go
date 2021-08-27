@@ -1,6 +1,8 @@
 package stream
 
-import "context"
+import (
+	"context"
+)
 
 // Override a proc
 type Override struct {
@@ -20,35 +22,35 @@ func (o Override) Send(v interface{}) error {
 	return nil
 }
 
-func (m Override) Consume(ifn interface{}) error {
-	if m.ConsumeFunc != nil {
+func (o Override) Consume(ifn interface{}) error {
+	if o.ConsumeFunc != nil {
 		fn := MakeConsumerFunc(ifn)
-		return m.ConsumeFunc(fn)
+		return o.ConsumeFunc(fn)
 	}
-	if m.Proc != nil {
-		return m.Proc.Consume(ifn)
+	if o.Proc != nil {
+		return o.Proc.Consume(ifn)
 	}
 	return nil
 }
 
-func (m Override) cancel() {
-	if m.Proc != nil {
-		m.Proc.cancel()
+func (o Override) cancel() {
+	if o.Proc != nil {
+		o.Proc.cancel()
 	}
 }
 
-func (m Override) close() {
-	if m.Proc != nil {
-		m.close()
+func (o Override) close() {
+	if o.Proc != nil {
+		o.Proc.close()
 	}
 }
 
-func (m Override) Context() context.Context {
-	if m.CTX != nil {
-		return m.CTX
+func (o Override) Context() context.Context {
+	if o.CTX != nil {
+		return o.CTX
 	}
-	if m.Proc != nil {
-		m.Proc.Context()
+	if o.Proc != nil {
+		return o.Proc.Context()
 	}
 	return context.TODO()
 }
