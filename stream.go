@@ -64,6 +64,14 @@ func Line(pps ...Pipe) Pipe {
 
 // Tee consumes and passes the consumed message to all pfs ProcFuncs.
 func Tee(pps ...Pipe) Pipe {
+	if len(pps) == 0 {
+		return pipe{func(p Proc) error {
+			return p.Consume(p.Send)
+		}}
+	}
+	if len(pps) == 1 {
+		return pps[0]
+	}
 	return pipe{func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		// iproc
@@ -122,7 +130,6 @@ func Buffer(n int, pps ...Pipe) Pipe {
 		ch := pp.newChan(ctx, n)
 		eg.Go(func() error {
 			defer ch.close()
-			// np := newProc(ctx, p, ch)
 			return p.Consume(ch.Send)
 		})
 		eg.Go(func() error {

@@ -47,6 +47,8 @@ func S(fn interface{}) Pipe {
 	return pipe{wrapProcFunc(procName(), makeSProcFunc(fn))}
 }
 
+var senderTyp = reflect.TypeOf((*Sender)(nil)).Elem()
+
 func makeSProcFunc(fn interface{}) procFunc {
 	switch fn := fn.(type) {
 	case func(Sender, []byte) error:
@@ -65,6 +67,16 @@ func makeSProcFunc(fn interface{}) procFunc {
 		return func(p Proc) error {
 			fnVal := reflect.ValueOf(fn)
 			fnTyp := fnVal.Type()
+
+			if fnTyp.NumIn() != 2 {
+				panic("func should have 2 params")
+			}
+			if fnTyp.In(0) != senderTyp {
+				panic("first param should be 'strm.Sender'")
+			}
+			if fnTyp.NumOut() != 1 || fnTyp.Out(0) != errTyp {
+				panic("func should have 1 output and must be 'error'")
+			}
 			args := make([]reflect.Value, 2)
 			args[0] = reflect.ValueOf(Sender(p))
 			err := p.Consume(func(v interface{}) error {
@@ -104,6 +116,12 @@ func makeTProcFunc(fn interface{}) procFunc {
 		return func(p Proc) error {
 			fnVal := reflect.ValueOf(fn)
 			fnTyp := fnVal.Type()
+			if fnTyp.NumIn() != 1 {
+				panic("func should have 1 param")
+			}
+			if fnTyp.NumOut() != 2 || fnTyp.Out(1) != errTyp {
+				panic("func should have 2 outputs and last must be 'error'")
+			}
 
 			args := make([]reflect.Value, 1)
 			err := p.Consume(func(v interface{}) error {
@@ -112,7 +130,7 @@ func makeTProcFunc(fn interface{}) procFunc {
 				} else {
 					args[0] = reflect.ValueOf(v)
 				}
-				if args[0].Type() != fnTyp.In(0) {
+				if fnTyp.In(0).Kind() != reflect.Interface && args[0].Type() != fnTyp.In(0) {
 					return TypeMismatchError{fnTyp.In(0).String(), args[0].Type().String()}
 				}
 

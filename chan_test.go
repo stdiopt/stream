@@ -473,14 +473,6 @@ type contextHelper struct {
 	cancel func()
 }
 
-func helperContext() context.Context {
-	ctx, cancel := context.WithCancel(context.TODO())
-	return contextHelper{
-		ctx,
-		cancel,
-	}
-}
-
 func helperCanceledContext() context.Context {
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()

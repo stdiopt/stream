@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	gomock "github.com/golang/mock/gomock"
 )
@@ -264,7 +263,7 @@ func TestOverride_Consume(t *testing.T) {
 				}
 				return args{fn}
 			},
-			wantPanic: "func should only have an error return",
+			wantPanic: "func should have an error return only",
 		},
 		{
 			name: "returns error on invalid consumer type",
@@ -432,9 +431,9 @@ func TestOverride_Context(t *testing.T) {
 		{
 			name: "returns context from Field",
 			fields: fields{
-				CTX: fakeContext{"a"},
+				CTX: fakeContext{"a", nil},
 			},
-			want: fakeContext{"a"},
+			want: fakeContext{"a", nil},
 		},
 		{
 			name: "returns context from proc",
@@ -443,25 +442,25 @@ func TestOverride_Context(t *testing.T) {
 					p := NewMockProc(ctrl)
 					p.EXPECT().
 						Context().
-						Return(fakeContext{"a"})
+						Return(fakeContext{"a", nil})
 					return p
 				},
 			},
-			want: fakeContext{"a"},
+			want: fakeContext{"a", nil},
 		},
 		{
 			name: "returns context from field if both set",
 			fields: fields{
-				CTX: fakeContext{"field"},
+				CTX: fakeContext{"field", nil},
 				Procfn: func(ctrl *gomock.Controller) Proc {
 					p := NewMockProc(ctrl)
 					p.EXPECT().
 						Context().
-						Return(fakeContext{"proc"}).AnyTimes()
+						Return(fakeContext{"proc", nil}).AnyTimes()
 					return p
 				},
 			},
-			want: fakeContext{"field"},
+			want: fakeContext{"field", nil},
 		},
 	}
 	for _, tt := range tests {
@@ -483,24 +482,4 @@ func TestOverride_Context(t *testing.T) {
 			}
 		})
 	}
-}
-
-type fakeContext struct {
-	s string
-}
-
-func (f fakeContext) Deadline() (deadline time.Time, ok bool) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (f fakeContext) Done() <-chan struct{} {
-	panic("not implemented") // TODO: Implement
-}
-
-func (f fakeContext) Err() error {
-	panic("not implemented") // TODO: Implement
-}
-
-func (f fakeContext) Value(key interface{}) interface{} {
-	panic("not implemented") // TODO: Implement
 }

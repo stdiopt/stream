@@ -82,7 +82,7 @@ func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 	}
 
 	if fnTyp.NumOut() != 1 || fnTyp.Out(0) != errTyp {
-		panic("func should only have an error return")
+		panic("func should have an error return only")
 	}
 	args := make([]reflect.Value, 1)
 	return func(v interface{}) error {
