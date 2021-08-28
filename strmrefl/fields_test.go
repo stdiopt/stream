@@ -265,7 +265,7 @@ func TestFieldOf(t *testing.T) {
 				v:  nil,
 				ff: []interface{}{"Test"},
 			},
-			wantErr: `invalid type: <nil>`,
+			wantErr: `invalid type <nil>`,
 		},
 		{
 			name: "returns error if invalid struct field",
@@ -290,7 +290,7 @@ func TestFieldOf(t *testing.T) {
 				v:  map[string]interface{}{"stuff": 1},
 				ff: []interface{}{"stuff1", "err"},
 			},
-			wantErr: `invalid type: `,
+			wantErr: `invalid type `,
 		},
 		{
 			name: "returns error if field invalid",
@@ -298,7 +298,7 @@ func TestFieldOf(t *testing.T) {
 				v:  1,
 				ff: []interface{}{"stuff1"},
 			},
-			wantErr: `invalid type: `,
+			wantErr: `invalid type `,
 		},
 	}
 	for _, tt := range tests {

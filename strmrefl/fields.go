@@ -76,9 +76,9 @@ func FieldOf(v interface{}, ff ...interface{}) (interface{}, error) {
 			cur = cur.MapIndex(reflect.ValueOf(k))
 			continue
 		case reflect.Invalid:
-			return nil, fmt.Errorf("invalid type: %v", v)
+			return nil, fmt.Errorf("invalid type %v", v)
 		default:
-			return nil, fmt.Errorf("invalid type: '%T' for field: %q", v, k)
+			return nil, fmt.Errorf("invalid type '%T' for field: %q", v, k)
 		}
 		cur = reflect.Indirect(cur)
 		// This will solve stuff with underlying interface types
