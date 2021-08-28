@@ -20,6 +20,9 @@ func Decode(comma rune) strm.Pipe {
 		csvReader.Comma = comma
 
 		_, err := csvReader.Read()
+		if err == io.EOF {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
