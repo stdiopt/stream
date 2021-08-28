@@ -8,6 +8,8 @@ import (
 	"github.com/stdiopt/stream/strmio"
 )
 
+// Maybe Encode/Decode?
+
 // Provide a way to send a Writer and still send Meta
 func Zip(lvl int) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {

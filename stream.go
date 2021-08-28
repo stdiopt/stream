@@ -147,5 +147,7 @@ func Run(pps ...Pipe) error {
 
 // RunWithContext runs the stream with a context.
 func RunWithContext(ctx context.Context, pps ...Pipe) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	return Line(pps...).Run(ctx, nil, nil)
 }

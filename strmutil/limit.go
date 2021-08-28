@@ -1,6 +1,8 @@
 package strmutil
 
 import (
+	"io"
+
 	strm "github.com/stdiopt/stream"
 )
 
@@ -10,7 +12,7 @@ func Limit(n int) strm.Pipe {
 		count := 0
 		return p.Consume(func(v interface{}) error {
 			if n == 0 {
-				return strm.ErrBreak
+				return io.EOF
 			}
 
 			if err := p.Send(v); err != nil {
@@ -18,7 +20,7 @@ func Limit(n int) strm.Pipe {
 			}
 			count++
 			if count >= n {
-				return strm.ErrBreak
+				return io.EOF
 			}
 			return nil
 		})

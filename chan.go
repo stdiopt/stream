@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"io"
 )
 
 type ConsumerFunc = func(interface{}) error
@@ -33,7 +34,7 @@ func (c procChan) Send(v interface{}) error {
 	// this way we avoid sending unexpectedly
 	select {
 	case <-c.done:
-		return ErrBreak
+		return io.EOF
 	case <-c.ctx.Done():
 		return c.ctx.Err()
 	default:
@@ -41,7 +42,7 @@ func (c procChan) Send(v interface{}) error {
 
 	select {
 	case <-c.done:
-		return ErrBreak
+		return io.EOF
 	case <-c.ctx.Done():
 		return c.ctx.Err()
 	case c.ch <- v:
@@ -66,7 +67,7 @@ func (c procChan) Consume(ifn interface{}) error {
 				return nil
 			}
 			err := fn(v)
-			if err == ErrBreak {
+			if err == io.EOF {
 				return nil
 			}
 			if err != nil {

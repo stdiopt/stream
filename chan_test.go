@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"testing"
 	"time"
@@ -143,7 +144,7 @@ func Test_procChan_Send(t *testing.T) {
 				}(),
 			},
 			args:    args{1},
-			wantErr: "break",
+			wantErr: "EOF",
 		},
 		{
 			name: "returns error on context canceled while waiting for send",
@@ -170,7 +171,7 @@ func Test_procChan_Send(t *testing.T) {
 				}(),
 			},
 			args:    args{1},
-			wantErr: "break",
+			wantErr: "EOF",
 		},
 	}
 	for _, tt := range tests {
@@ -250,7 +251,7 @@ func Test_procChan_Consume(t *testing.T) {
 			argsfn: func(out *interface{}) args {
 				fn := func(v interface{}) error {
 					*out = v
-					return ErrBreak
+					return io.EOF
 				}
 				return args{fn}
 			},

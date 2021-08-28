@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -89,7 +90,7 @@ func TestLine(t *testing.T) {
 		{
 			name: "break line",
 			args: args{[]Pipe{
-				S(func(s Sender, v interface{}) error {
+				S(func(s Sender, _ interface{}) error {
 					for i := 0; i < 10; i++ {
 						if err := s.Send(i); err != nil {
 							return err
@@ -102,7 +103,7 @@ func TestLine(t *testing.T) {
 					return p.Consume(func(v interface{}) error {
 						count++
 						if count > 2 {
-							return ErrBreak
+							return io.EOF
 						}
 						return p.Send(v)
 					})
