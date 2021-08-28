@@ -5,7 +5,7 @@ import (
 	"regexp"
 )
 
-func matchError(match string, err error) bool {
+func MatchError(match string, err error) bool {
 	if match == "" {
 		return err == nil
 	}
@@ -19,7 +19,7 @@ func matchError(match string, err error) bool {
 	return re.MatchString(errStr)
 }
 
-func matchPanic(match string, p interface{}) bool {
+func MatchPanic(match string, p interface{}) bool {
 	if match == "" {
 		return p == nil
 	}

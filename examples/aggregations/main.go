@@ -21,10 +21,10 @@ func main() {
 	l := stream.Line(
 		strmutil.Value("https://randomuser.me/api/?results=100"),   // just sends the string
 		strmhttp.Get(strmhttp.WithHeader("Authorization", "...}")), // fetches the url passed by the input
-		strmjson.Decode(nil),      // Parses json if param is nil it will parse into an &interface{}
-		strmrefl.Field("results"), // from the map response, we send the contents of the field results
-		strmrefl.Unslice(),        // unslice processes the incoming slice and send each element
-		strmjson.Dump(os.Stdout),  // just writes json into stdout and passthru the elements
+		strmjson.Decode(nil),        // Parses json if param is nil it will parse into an &interface{}
+		strmrefl.Extract("results"), // from the map response, we send the contents of the field results
+		strmrefl.Unslice(),          // unslice processes the incoming slice and send each element
+		strmjson.Dump(os.Stdout),    // just writes json into stdout and passthru the elements
 		// Aggregates the input elements and processes some fields
 		// it produces a strmagg.Group that contains a slice of reduced fields
 		strmagg.Aggregate(

@@ -1,7 +1,6 @@
 package strmrefl
 
 import (
-	"fmt"
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
@@ -12,7 +11,7 @@ func Unslice() strm.Pipe {
 	return strm.S(func(p strm.Sender, v interface{}) error {
 		val := reflect.Indirect(reflect.ValueOf(v))
 		if val.Type().Kind() != reflect.Slice {
-			return fmt.Errorf("not a slice: %T", v)
+			return p.Send(v)
 		}
 
 		for i := 0; i < val.Len(); i++ {

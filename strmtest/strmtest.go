@@ -106,7 +106,7 @@ func (c *Capturer) Run() {
 
 	mark := time.Now()
 	err := c.pipe.Run(context.TODO(), capturer, capturer)
-	if !matchError(c.wantErrorRE, err) {
+	if !MatchError(c.wantErrorRE, err) {
 		c.t.Errorf("wrong error\nwant: %v\n got: %v\n", c.wantErrorRE, err)
 	}
 
