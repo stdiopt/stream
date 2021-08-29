@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmtest"
 )
 
@@ -16,26 +15,32 @@ type sample struct {
 	Two string
 }
 
-func TestInsertBatch(t *testing.T) {
+func TestDialect_InsertBatch(t *testing.T) {
+	type args struct {
+		db        *sql.DB
+		batchSize int
+		qry       string
+		params    []interface{}
+	}
 	tests := []struct {
 		name        string
-		pipe        func(db *sql.DB) strm.Pipe
+		d           Dialect
+		args        args
 		send        []interface{}
 		senderError error
 
-		want        []interface{}
-		wantQuery   func(mock sqlmock.Sqlmock)
-		wantErrorRE string
+		want      []interface{}
+		wantQuery func(mock sqlmock.Sqlmock)
+		wantErr   string
 	}{
+
 		{
 			name: "executes query",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.InsertBatch(
-					db,
-					2,
-					"insert into table values",
-					1, 2,
-				)
+			d:    PSQL,
+			args: args{
+				batchSize: 2,
+				qry:       "insert into table values",
+				params:    []interface{}{1, 2},
 			},
 			send: []interface{}{1},
 			want: []interface{}{1},
@@ -47,14 +52,14 @@ func TestInsertBatch(t *testing.T) {
 		},
 		{
 			name: "executes PSQL batch insert",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.InsertBatch(
-					db,
-					2,
-					"insert into table values",
+			d:    PSQL,
+			args: args{
+				batchSize: 2,
+				qry:       "insert into table values",
+				params: []interface{}{
 					Field("One"),
 					Field("Two"),
-				)
+				},
 			},
 			send: []interface{}{
 				sample{One: "1.1", Two: "2.1"},
@@ -87,14 +92,14 @@ func TestInsertBatch(t *testing.T) {
 		},
 		{
 			name: "executes MYSQL batch insert",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return MySQL.InsertBatch(
-					db,
-					2,
-					"insert into table values",
+			d:    MySQL,
+			args: args{
+				batchSize: 2,
+				qry:       "insert into table values",
+				params: []interface{}{
 					Field("One"),
 					Field("Two"),
-				)
+				},
 			},
 			send: []interface{}{
 				sample{One: "1.1", Two: "2.1"},
@@ -127,26 +132,26 @@ func TestInsertBatch(t *testing.T) {
 		},
 		{
 			name: "returns error when param errors",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.InsertBatch(
-					db,
-					1,
-					"insert into table values",
+			d:    PSQL,
+			args: args{
+				batchSize: 1,
+				qry:       "insert into table values",
+				params: []interface{}{
 					Field("not found"),
-				)
+				},
 			},
-			send:        []interface{}{1},
-			wantErrorRE: `strmsql.Dialect.InsertBatch.* invalid type 'int' for field: "not found"$`,
+			send:    []interface{}{1},
+			wantErr: `strmsql.Dialect.InsertBatch.* invalid type 'int' for field: "not found"$`,
 		},
 		{
 			name: "returns error when query errors",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.InsertBatch(
-					db,
+			d:    PSQL,
+			args: args{
+				batchSize: 1,
+				qry:       "insert into table values",
+				params: []interface{}{
 					1,
-					"insert into table values",
-					1,
-				)
+				},
 			},
 			send: []interface{}{1},
 			wantQuery: func(mock sqlmock.Sqlmock) {
@@ -154,17 +159,17 @@ func TestInsertBatch(t *testing.T) {
 					WithArgs(1).
 					WillReturnError(errors.New("query error"))
 			},
-			wantErrorRE: `strmsql.Dialect.InsertBatch.* query error`,
+			wantErr: `strmsql.Dialect.InsertBatch.* query error`,
 		},
 		{
 			name: "returns error when sender errors",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.InsertBatch(
-					db,
-					1,
-					"insert into table values",
+			d:    PSQL,
+			args: args{
+				batchSize: 1,
+				qry:       "insert into table values",
+				params: []interface{}{
 					1, 2,
-				)
+				},
 			},
 			send:        []interface{}{1, 2, 3},
 			senderError: errors.New("sender error"),
@@ -174,10 +179,9 @@ func TestInsertBatch(t *testing.T) {
 					WithArgs(1, 2).
 					WillReturnResult(sqlmock.NewResult(1, 1))
 			},
-			wantErrorRE: "strmsql.Dialect.InsertBatch.* sender error$",
+			wantErr: "strmsql.Dialect.InsertBatch.* sender error$",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
@@ -185,38 +189,53 @@ func TestInsertBatch(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			pp := tt.d.InsertBatch(
+				db,
+				tt.args.batchSize,
+				tt.args.qry,
+				tt.args.params...,
+			)
+			if pp == nil {
+				t.Errorf("InsertBatch() is nil = %v, want %v", pp == nil, false)
+			}
+
 			if tt.wantQuery != nil {
 				tt.wantQuery(mock)
 			}
-			st := strmtest.New(t, tt.pipe(db))
+			st := strmtest.New(t, pp)
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}
 			st.ExpectFull(tt.want...).
-				ExpectError(tt.wantErrorRE).
+				ExpectError(tt.wantErr).
 				Run()
 		})
 	}
 }
 
-func TestExec(t *testing.T) {
+func TestDialect_Exec(t *testing.T) {
+	type args struct {
+		db     *sql.DB
+		qry    string
+		params []interface{}
+	}
 	tests := []struct {
 		name        string
-		pipe        func(db *sql.DB) strm.Pipe
+		d           Dialect
+		args        args
 		send        []interface{}
 		senderError error
 
-		want        []interface{}
-		wantQuery   func(mock sqlmock.Sqlmock)
-		wantErrorRE string
+		want      []interface{}
+		wantQuery func(mock sqlmock.Sqlmock)
+		wantErr   string
 	}{
+
 		{
 			name: "executes query",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.Exec(
-					db,
-					"insert into table values($1,$2)", 1, 2,
-				)
+			args: args{
+				qry:    "insert into table values($1,$2)",
+				params: []interface{}{1, 2},
 			},
 			send: []interface{}{1},
 			want: []interface{}{1},
@@ -228,24 +247,18 @@ func TestExec(t *testing.T) {
 		},
 		{
 			name: "returns error when param errors",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.Exec(
-					db,
-					"insert into table values($1, $2)",
-					Field("not found"),
-				)
+			args: args{
+				qry:    "insert into table values($1, $2)",
+				params: []interface{}{Field("not found")},
 			},
-			send:        []interface{}{1},
-			wantErrorRE: `strmsql.Dialect.Exec.* invalid type 'int' for field: "not found"$`,
+			send:    []interface{}{1},
+			wantErr: `strmsql.Dialect.Exec.* invalid type 'int' for field: "not found"$`,
 		},
 		{
 			name: "returns error when query errors",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.Exec(
-					db,
-					"insert into table values($1)",
-					1,
-				)
+			args: args{
+				qry:    "insert into table values($1)",
+				params: []interface{}{1},
 			},
 			send: []interface{}{1},
 			wantQuery: func(mock sqlmock.Sqlmock) {
@@ -253,16 +266,14 @@ func TestExec(t *testing.T) {
 					WithArgs(1).
 					WillReturnError(errors.New("query error"))
 			},
-			wantErrorRE: `strmsql.Dialect.Exec.* query error`,
+			wantErr: `strmsql.Dialect.Exec.* query error`,
 		},
 		{
 			name: "returns error when sender errors",
-			pipe: func(db *sql.DB) strm.Pipe {
-				return PSQL.Exec(
-					db,
-					"insert into table values($1,$2)",
-					1, 2,
-				)
+
+			args: args{
+				qry:    "insert into table values($1,$2)",
+				params: []interface{}{1, 2},
 			},
 			send:        []interface{}{1, 2, 3},
 			senderError: errors.New("sender error"),
@@ -272,10 +283,9 @@ func TestExec(t *testing.T) {
 					WithArgs(1, 2).
 					WillReturnResult(sqlmock.NewResult(1, 1))
 			},
-			wantErrorRE: "strmsql.Dialect.Exec.* sender error$",
+			wantErr: "strmsql.Dialect.Exec.* sender error$",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
@@ -283,15 +293,24 @@ func TestExec(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			pp := tt.d.Exec(
+				db,
+				tt.args.qry,
+				tt.args.params...,
+			)
+			if pp == nil {
+				t.Errorf("Exec() is nil = %v, want %v", pp == nil, false)
+			}
+
 			if tt.wantQuery != nil {
 				tt.wantQuery(mock)
 			}
-			st := strmtest.New(t, tt.pipe(db))
+			st := strmtest.New(t, pp)
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}
 			st.ExpectFull(tt.want...).
-				ExpectError(tt.wantErrorRE).
+				ExpectError(tt.wantErr).
 				Run()
 		})
 	}

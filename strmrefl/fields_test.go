@@ -23,9 +23,10 @@ func TestExtract(t *testing.T) {
 		args        args
 		send        []interface{}
 		senderError error
-		want        []interface{}
-		wantErr     string
-		wantPanic   string
+
+		want      []interface{}
+		wantErr   string
+		wantPanic string
 	}{
 		{
 			name: "extracts field",
@@ -68,7 +69,12 @@ func TestExtract(t *testing.T) {
 				}
 			}()
 
-			st := strmtest.New(t, Extract(tt.args.f...))
+			pp := Extract(tt.args.f...)
+			if pp == nil {
+				t.Errorf("Extract() is nil = %v, want %v", pp == nil, false)
+			}
+
+			st := strmtest.New(t, pp)
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}
@@ -94,9 +100,10 @@ func TestStructMap(t *testing.T) {
 		args        args
 		send        []interface{}
 		senderError error
-		want        []interface{}
-		wantErr     string
-		wantPanic   string
+
+		want      []interface{}
+		wantErr   string
+		wantPanic string
 	}{
 		{
 			name: "maps a struct",
@@ -187,8 +194,12 @@ func TestStructMap(t *testing.T) {
 				}
 			}()
 
-			st := strmtest.New(t, StructMap(tt.args.target, tt.args.fm))
+			pp := StructMap(tt.args.target, tt.args.fm)
+			if pp == nil {
+				t.Errorf("StructMap() is nil = %v, want %v", pp == nil, false)
+			}
 
+			st := strmtest.New(t, StructMap(tt.args.target, tt.args.fm))
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}

@@ -8,10 +8,10 @@ import (
 
 // Repeat repeats last consumed value n times.
 func Repeat(n int) strm.Pipe {
+	if n <= 0 {
+		panic(fmt.Sprintf("invalid repeat param '%d', should be > 0", n))
+	}
 	return strm.Func(func(p strm.Proc) error {
-		if n <= 0 {
-			return fmt.Errorf("invalid repeat param '%d', should be > 0", n)
-		}
 		return p.Consume(func(v interface{}) error {
 			for i := 0; i < n; i++ {
 				if err := p.Send(v); err != nil {

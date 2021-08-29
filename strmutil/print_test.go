@@ -6,70 +6,76 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmtest"
 )
 
 func TestPrint(t *testing.T) {
+	type args struct {
+		prefix string
+	}
 	tests := []struct {
 		name        string
-		pipe        strm.Pipe
+		args        args
 		send        []interface{}
-		want        []interface{}
 		senderError error
 
-		wantErrorRE string
+		want        []interface{}
+		wantErr     string
 		matchOutput string
 	}{
 		{
 			name:        "prints",
-			pipe:        Print(""),
+			args:        args{""},
 			send:        []interface{}{1},
 			want:        []interface{}{1},
 			matchOutput: "1\n",
 		},
 		{
 			name:        "prints with a prefix",
-			pipe:        Print("prefix"),
+			args:        args{"prefix"},
 			send:        []interface{}{1},
 			want:        []interface{}{1},
 			matchOutput: "[prefix] 1\n",
 		},
 		{
 			name:        "prints []byte as string",
-			pipe:        Print("prefix"),
+			args:        args{"prefix"},
 			send:        []interface{}{[]byte{'a', 'b', 'c'}},
 			want:        []interface{}{[]byte{'a', 'b', 'c'}},
 			matchOutput: "[prefix] abc\n",
 		},
 		{
 			name:        "multiple types",
-			pipe:        Print(""),
+			args:        args{""},
 			send:        []interface{}{1, "two", 2.1},
 			want:        []interface{}{1, "two", 2.1},
 			matchOutput: "1\ntwo\n2.1\n",
 		},
 		{
 			name:        "returns error when sender errors",
-			pipe:        Print(""),
+			args:        args{""},
 			send:        []interface{}{1, "two", 2.1},
 			senderError: errors.New("sender error"),
-			wantErrorRE: "strmutil.Print.* sender error$",
+			wantErr:     "strmutil.Print.* sender error$",
 			matchOutput: "1\n",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			SetOutput(buf)
 
-			st := strmtest.New(t, tt.pipe)
+			pp := Print(tt.args.prefix)
+			if pp == nil {
+				t.Errorf("Print() is nil = %v, want %v", pp == nil, false)
+			}
+
+			st := strmtest.New(t, pp)
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}
 			st.ExpectFull(tt.want...).
-				ExpectError(tt.wantErrorRE).
+				ExpectError(tt.wantErr).
 				Run()
 
 			if diff := cmp.Diff(buf.String(), tt.matchOutput); diff != "" {

@@ -4,65 +4,66 @@ import (
 	"errors"
 	"testing"
 
-	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmtest"
 )
 
 func TestValue(t *testing.T) {
-	type send struct {
-		value       interface{}
-		senderError error
-		want        []interface{}
-		wantErrorRE string
+	type args struct {
+		vs []interface{}
 	}
 	tests := []struct {
 		name        string
-		pipe        strm.Pipe
-		sends       []send
-		wantErrorRE string
+		args        args
+		send        []interface{}
+		senderError error
+		want        []interface{}
+		wantErr     string
 	}{
+
 		{
 			name: "sends value",
-			pipe: Value(1),
-			sends: []send{
-				{value: 'x', want: []interface{}{1}},
-			},
+			args: args{[]interface{}{1}},
+			send: []interface{}{'x'},
+			want: []interface{}{1},
 		},
 		{
 			name: "sends multiple values",
-			pipe: Value(1, 2, "test"),
-			sends: []send{
-				{value: "test1", want: []interface{}{1, 2, "test"}},
-				{value: "test2", want: []interface{}{1, 2, "test"}},
+			args: args{[]interface{}{1, 2, "test"}},
+			send: []interface{}{
+				"test1", "test2",
+			},
+			want: []interface{}{
+				1, 2, "test",
+				1, 2, "test",
 			},
 		},
 		{
 			name: "does not send values if no params",
-			pipe: Value(),
-			sends: []send{
-				{value: "test1"},
-				{value: "test2"},
-			},
+			args: args{},
+			send: []interface{}{"test1", "test2"},
 		},
 		{
-			name: "returns error if sender errors",
-			pipe: Value(1),
-			sends: []send{
-				{value: 1, senderError: errors.New("sender error")},
-			},
-			wantErrorRE: "strmutil.Value.* sender error$",
+			name:        "returns error if sender errors",
+			args:        args{[]interface{}{1}},
+			send:        []interface{}{1},
+			senderError: errors.New("sender error"),
+			wantErr:     "strmutil.Value.* sender error$",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := strmtest.New(t, tt.pipe)
-			for _, s := range tt.sends {
-				st.Send(s.value).
-					WithSenderError(s.senderError).
-					Expect(s.want...)
+			pp := Value(tt.args.vs...)
+			if pp == nil {
+				t.Errorf("Value() is nil = %v, want %v", pp == nil, false)
 			}
-			st.ExpectError(tt.wantErrorRE).Run()
+
+			st := strmtest.New(t, pp)
+			for _, s := range tt.send {
+				st.Send(s).WithSenderError(tt.senderError)
+			}
+			st.ExpectFull(tt.want...).
+				ExpectError(tt.wantErr).
+				Run()
 		})
 	}
 }

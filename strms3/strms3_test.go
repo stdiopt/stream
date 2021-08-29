@@ -9,9 +9,132 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/google/go-cmp/cmp"
-	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmtest"
 )
+
+func TestUpload(t *testing.T) {
+	type args struct {
+		upl   s3uploader
+		s3url string
+	}
+	tests := []struct {
+		name string
+		args args
+
+		send          []interface{}
+		senderError   error
+		uploaderError error
+
+		want []interface{}
+
+		wantBucket  string
+		wantKey     string
+		wantBody    []byte
+		wantErrorRE string
+	}{
+
+		{
+			name: "upload data",
+			args: args{s3url: "s3://bucket/key"},
+			send: []interface{}{
+				[]byte("test"),
+			},
+
+			want: []interface{}{
+				[]byte("test"),
+			},
+			wantBucket: "bucket",
+			wantKey:    "key",
+			wantBody:   []byte("test"),
+		},
+		{
+			name: "upload data from multiple sends",
+			args: args{s3url: "s3://bucket/key"},
+			send: []interface{}{
+				[]byte("test 1"),
+				[]byte("test 2"),
+			},
+
+			want: []interface{}{
+				[]byte("test 1"),
+				[]byte("test 2"),
+			},
+			wantBucket: "bucket",
+			wantKey:    "key",
+			wantBody:   []byte("test 1test 2"),
+		},
+		{
+			name: "returns error on malformed url",
+			args: args{s3url: "bucket/key"},
+			send: []interface{}{[]byte("test 1")},
+
+			wantErrorRE: "strms3.Upload.* malformed url, should be in 's3://{bucket}/{key/key}' form$",
+		},
+		{
+			name: "returns error on invalid send type",
+			args: args{s3url: "s3://bucket/key"},
+			send: []interface{}{1},
+
+			wantBucket:  "bucket",
+			wantKey:     "key",
+			wantErrorRE: `strms3.Upload.* invalid type, want '\[\]uint8' but got 'int'$`,
+		},
+		{
+			name: "returns error on parsing url",
+			args: args{s3url: "%20://test//--"},
+			send: []interface{}{[]byte("test 1")},
+
+			wantErrorRE: "strms3.Upload.* first path segment in URL cannot contain colon$",
+		},
+		{
+			name:          "returns error on uploader error",
+			args:          args{s3url: "s3://bucket/key"},
+			send:          []interface{}{[]byte("test 1")},
+			uploaderError: errors.New("uploader test error"),
+
+			wantErrorRE: "strms3.Upload.* uploader test error$",
+		},
+		{
+			name:        "returns error on sender error",
+			args:        args{s3url: "s3://bucket/key"},
+			send:        []interface{}{[]byte("test 1")},
+			senderError: errors.New("sender test error"),
+
+			wantErrorRE: "strms3.Upload.* sender test error$",
+			wantBucket:  "bucket",
+			wantKey:     "key",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upl := s3mock{uploaderError: tt.uploaderError}
+
+			pp := Upload(&upl, tt.args.s3url)
+			if pp == nil {
+				t.Errorf("Limit() is nil = %v, want %v", pp == nil, false)
+			}
+			st := strmtest.New(t, pp)
+			for _, s := range tt.send {
+				st.Send(s).WithSenderError(tt.senderError)
+			}
+			st.ExpectFull(tt.want...).
+				ExpectError(tt.wantErrorRE).
+				Run()
+
+			if upl.bucket != tt.wantBucket {
+				t.Errorf("wrong bucket\nwant: %v\n got: %v\n", tt.wantBucket, upl.bucket)
+			}
+
+			if upl.key != tt.wantKey {
+				t.Errorf("wrong key\nwant: %v\n got: %v\n", tt.wantKey, upl.key)
+			}
+
+			if diff := cmp.Diff(tt.wantBody, upl.body); diff != "" {
+				t.Error("wrong body output\n- want + got\n", diff)
+			}
+		})
+	}
+}
 
 type s3mock struct {
 	uploaderError error
@@ -40,126 +163,4 @@ func (s *s3mock) UploadWithContext(
 	s.body = data
 
 	return &s3manager.UploadOutput{}, nil
-}
-
-func TestUploader(t *testing.T) {
-	tests := []struct {
-		name          string
-		pipe          func(cli s3uploader) strm.Pipe
-		send          []interface{}
-		senderError   error
-		uploaderError error
-
-		want []interface{}
-
-		wantBucket  string
-		wantKey     string
-		wantBody    []byte
-		wantErrorRE string
-	}{
-		{
-			name: "upload data",
-			pipe: func(upl s3uploader) strm.Pipe {
-				return Upload(upl, "s3://bucket/key")
-			},
-			send: []interface{}{
-				[]byte("test"),
-			},
-			want: []interface{}{
-				[]byte("test"),
-			},
-			wantBucket: "bucket",
-			wantKey:    "key",
-			wantBody:   []byte("test"),
-		},
-		{
-			name: "upload data from multiple sends",
-			pipe: func(upl s3uploader) strm.Pipe {
-				return Upload(upl, "s3://bucket/key")
-			},
-			send: []interface{}{
-				[]byte("test 1"),
-				[]byte("test 2"),
-			},
-			want: []interface{}{
-				[]byte("test 1"),
-				[]byte("test 2"),
-			},
-			wantBucket: "bucket",
-			wantKey:    "key",
-			wantBody:   []byte("test 1test 2"),
-		},
-		{
-			name: "returns error on malformed url",
-			pipe: func(upl s3uploader) strm.Pipe {
-				return Upload(upl, "bucket/key")
-			},
-			send:        []interface{}{[]byte("test 1")},
-			wantErrorRE: "strms3.Upload.* malformed url, should be in 's3://{bucket}/{key/key}' form$",
-		},
-		{
-			name: "returns error on invalid send type",
-			pipe: func(upl s3uploader) strm.Pipe {
-				return Upload(upl, "s3://bucket/key")
-			},
-			send:        []interface{}{1},
-			wantBucket:  "bucket",
-			wantKey:     "key",
-			wantErrorRE: `strms3.Upload.* invalid type, want '\[\]uint8' but got 'int'$`,
-		},
-		{
-			name: "returns error on parsing url",
-			pipe: func(upl s3uploader) strm.Pipe {
-				return Upload(upl, "%20://test//--")
-			},
-			send:        []interface{}{[]byte("test 1")},
-			wantErrorRE: "strms3.Upload.* first path segment in URL cannot contain colon$",
-		},
-		{
-			name: "returns error on uploader error",
-			pipe: func(upl s3uploader) strm.Pipe {
-				return Upload(upl, "s3://bucket/key")
-			},
-			send:          []interface{}{[]byte("test 1")},
-			uploaderError: errors.New("uploader test error"),
-			wantErrorRE:   "strms3.Upload.* uploader test error$",
-		},
-		{
-			name: "returns error on sender error",
-			pipe: func(upl s3uploader) strm.Pipe {
-				return Upload(upl, "s3://bucket/key")
-			},
-			send:        []interface{}{[]byte("test 1")},
-			senderError: errors.New("sender test error"),
-			wantErrorRE: "strms3.Upload.* sender test error$",
-			wantBucket:  "bucket",
-			wantKey:     "key",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := s3mock{uploaderError: tt.uploaderError}
-
-			st := strmtest.New(t, tt.pipe(&m))
-			for _, s := range tt.send {
-				st.Send(s).WithSenderError(tt.senderError)
-			}
-			st.ExpectFull(tt.want...).
-				ExpectError(tt.wantErrorRE).
-				Run()
-
-			if m.bucket != tt.wantBucket {
-				t.Errorf("wrong bucket\nwant: %v\n got: %v\n", tt.wantBucket, m.bucket)
-			}
-
-			if m.key != tt.wantKey {
-				t.Errorf("wrong key\nwant: %v\n got: %v\n", tt.wantKey, m.key)
-			}
-
-			if diff := cmp.Diff(tt.wantBody, m.body); diff != "" {
-				t.Error("wrong body output\n- want + got\n", diff)
-			}
-		})
-	}
 }

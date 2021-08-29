@@ -10,16 +10,21 @@ import (
 )
 
 func TestPass(t *testing.T) {
+	type args struct {
+		pass strm.Sender
+	}
 	tests := []struct {
 		name        string
+		args        args
 		send        []interface{}
-		want        []interface{}
-		wantPass    []interface{}
 		senderError error
 		passerError error
 
-		wantErrorRE string
+		want     []interface{}
+		wantPass []interface{}
+		wantErr  string
 	}{
+
 		{
 			name:     "pass value to other proc",
 			send:     []interface{}{1},
@@ -31,16 +36,15 @@ func TestPass(t *testing.T) {
 			send:        []interface{}{1, 2, 3},
 			senderError: errors.New("sender error"),
 			wantPass:    []interface{}{1},
-			wantErrorRE: "strmutil.Pass.* sender error$",
+			wantErr:     "strmutil.Pass.* sender error$",
 		},
 		{
 			name:        "returns error when passer errors",
 			send:        []interface{}{1, 2, 3},
 			passerError: errors.New("passer error"),
-			wantErrorRE: "strmutil.Pass.* passer error$",
+			wantErr:     "strmutil.Pass.* passer error$",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got []interface{}
@@ -52,12 +56,17 @@ func TestPass(t *testing.T) {
 				got = append(got, v)
 				return nil
 			}}
-			st := strmtest.New(t, Pass(p))
+			pp := Pass(p)
+			if pp == nil {
+				t.Errorf("Pass() is nil = %v, want %v", pp == nil, false)
+			}
+
+			st := strmtest.New(t, pp)
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}
 			st.ExpectFull(tt.want...).
-				ExpectError(tt.wantErrorRE).
+				ExpectError(tt.wantErr).
 				Run()
 
 			if diff := cmp.Diff(got, tt.wantPass); diff != "" {

@@ -19,22 +19,20 @@ func WithFuncs(fm template.FuncMap) OptionFunc {
 // Template receives any type and processes it through the template described
 // on s and produces []byte
 func Template(s string, opts ...OptionFunc) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		tmpl := template.New("/")
-		tmpl = tmpl.Option("missingkey=error")
-		tmpl = tmpl.Funcs(template.FuncMap{
-			"esc": func(s string) string {
-				return fmt.Sprintf("%q", s)
-			},
-		})
-		for _, fn := range opts {
-			tmpl = fn(tmpl)
-		}
+	tmpl := template.New("/")
+	tmpl = tmpl.Option("missingkey=error")
+	tmpl = tmpl.Funcs(template.FuncMap{
+		"esc": func(s string) string {
+			return fmt.Sprintf("%q", s)
+		},
+	})
+	for _, fn := range opts {
+		tmpl = fn(tmpl)
+	}
 
-		tmpl, err := tmpl.Parse(s)
-		if err != nil {
-			return err
-		}
+	tmpl = template.Must(tmpl.Parse(s))
+
+	return strm.Func(func(p strm.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			buf := &bytes.Buffer{}
 			if err := tmpl.Execute(buf, v); err != nil {

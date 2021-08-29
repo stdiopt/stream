@@ -8,10 +8,12 @@ import (
 
 // Seq generates a sequence.
 func Seq(start, end, step int) strm.Pipe {
+	if (start == end) || (start > end && step >= 0) || (start < end && step <= 0) {
+		panic(
+			fmt.Sprintf("invalid range: %d->%d, step: %d causes infinite loop", start, end, step),
+		)
+	}
 	return strm.Func(func(p strm.Proc) error {
-		if (start == end) || (start > end && step >= 0) || (start < end && step <= 0) {
-			return fmt.Errorf("invalid range: %d->%d, step: %d causes infinite loop", start, end, step)
-		}
 		return p.Consume(func(interface{}) error {
 			if start > end {
 				for i := start; i >= end; i += step {
