@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmio"
+	"github.com/stdiopt/stream/x/strmio"
 )
 
 // JSONDecode parses the []byte input as json and send the object

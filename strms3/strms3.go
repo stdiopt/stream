@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmio"
+	"github.com/stdiopt/stream/x/strmio"
 )
 
 type s3uploader interface {

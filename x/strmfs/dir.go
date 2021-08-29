@@ -10,7 +10,7 @@ import (
 // ListFiles will list and send file names on a given a path, path will be joined using
 // filepath.Join.
 func ListFiles(pattern string) strm.Pipe {
-	return strm.Proc(func(p strm.Proc) error {
+	return strm.Func(func(p strm.Proc) error {
 		return p.Consume(func(path string) error {
 			return filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
@@ -24,7 +24,7 @@ func ListFiles(pattern string) strm.Pipe {
 					return err
 				}
 				if matched {
-					return s.Send(path)
+					return p.Send(path)
 				}
 				return nil
 			})

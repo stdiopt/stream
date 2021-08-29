@@ -7,7 +7,7 @@ import (
 	"regexp"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmio"
+	"github.com/stdiopt/stream/x/strmio"
 )
 
 // Encode receives a []string and encodes into []bytes writing the hdr first if any.

@@ -5,7 +5,7 @@ import (
 	"io"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmio"
+	"github.com/stdiopt/stream/x/strmio"
 )
 
 // Provide a way to send a Writer and still send Meta

@@ -10,8 +10,8 @@ import (
 
 	"github.com/krolaw/zipstream"
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmio"
 	"github.com/stdiopt/stream/strmutil"
+	"github.com/stdiopt/stream/x/strmio"
 	"golang.org/x/sync/errgroup"
 )
 
