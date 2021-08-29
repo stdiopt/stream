@@ -140,7 +140,6 @@ func (c *Capturer) Run() {
 			}
 		}
 	}
-
 	// Full pipe results
 	switch c.wantMode {
 	case wantModeOrdered:

@@ -1,30 +1,91 @@
 package strmcsv
 
+// TODO: {lpf} Add read header option on decoder
+
 import (
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io"
-	"regexp"
 
 	strm "github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmrefl"
 	"github.com/stdiopt/stream/x/strmio"
 )
 
+type column struct {
+	hdr string
+	fn  func(interface{}) (interface{}, error)
+}
+
+type encode struct {
+	columns []column
+}
+
+type encodeOpt = func(*encode)
+
+func Field(hdr string, f ...interface{}) encodeOpt {
+	return func(e *encode) {
+		e.columns = append(e.columns, column{
+			hdr: hdr,
+			fn: func(v interface{}) (interface{}, error) {
+				return strmrefl.FieldOf(v, f...)
+			},
+		})
+	}
+}
+
 // Encode receives a []string and encodes into []bytes writing the hdr first if any.
-func Encode(comma rune, hdr ...string) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
+func Encode(comma rune, encodeOpts ...encodeOpt) strm.Pipe {
+	e := encode{}
+	for _, fn := range encodeOpts {
+		fn(&e)
+	}
+	return strm.Func(func(p strm.Proc) (err error) {
 		w := strmio.AsWriter(p)
 
 		cw := csv.NewWriter(w)
-		defer cw.Flush()
-		cw.Comma = comma
-		if len(hdr) > 0 {
-			if err := cw.Write(hdr); err != nil {
-				return err
+		defer func() {
+			cw.Flush()
+			cwErr := cw.Error()
+			if err == nil {
+				err = cwErr
 			}
-		}
-		return p.Consume(func(row []string) error {
-			return cw.Write(row)
+		}()
+		cw.Comma = comma
+
+		headerSent := false
+		return p.Consume(func(v interface{}) error {
+			if !headerSent {
+				hdr := []string{}
+				for _, c := range e.columns {
+					hdr = append(hdr, c.hdr)
+				}
+				if len(hdr) > 0 {
+					cw.Write(hdr)
+				}
+				headerSent = true
+			}
+			if len(e.columns) == 0 {
+				row, ok := v.([]string)
+				if !ok {
+					return fmt.Errorf(
+						"invalid input type, requires []string when no columns defined",
+					)
+				}
+				return cw.Write(row)
+			}
+			row := make([]string, len(e.columns))
+			for i, c := range e.columns {
+				raw, err := c.fn(v)
+				if err != nil {
+					return err
+				}
+				row[i] = fmt.Sprint(raw)
+			}
+			cw.Write(row)
+
+			return cw.Error()
 		})
 	})
 }
@@ -61,58 +122,6 @@ func Decode(comma rune) strm.Pipe {
 	})
 }
 
-func DecodeMatch(comma rune, fields ...string) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		rd := strmio.AsReader(p)
-		defer rd.Close()
-		csvReader := csv.NewReader(rd)
-		csvReader.Comma = comma
-
-		hdr, err := csvReader.Read()
-		if err != nil {
-			return err
-		}
-		indexes := make([]int, len(fields))
-		for i, f := range fields {
-			re, err := regexp.Compile(f)
-			if err != nil {
-				return err
-			}
-			indexes[i] = -1
-			for hi, h := range hdr {
-				if re.MatchString(h) {
-					indexes[i] = hi
-					break
-				}
-			}
-		}
-
-		for {
-			row, err := csvReader.Read()
-			if err == io.EOF {
-				return nil
-			}
-			if err != nil {
-				rd.CloseWithError(err)
-				return err
-			}
-
-			res := make([]string, len(fields))
-			for i := range res {
-				if indexes[i] == -1 {
-					continue
-				}
-				res[i] = row[indexes[i]]
-			}
-
-			if err := p.Send(res); err != nil {
-				rd.CloseWithError(err)
-				return err
-			}
-		}
-	})
-}
-
 func DecodeAsJSON(comma rune) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		rd := strmio.AsReader(p)
@@ -122,6 +131,9 @@ func DecodeAsJSON(comma rune) strm.Pipe {
 		csvReader.Comma = comma
 
 		hdr, err := csvReader.Read()
+		if err == io.EOF {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
