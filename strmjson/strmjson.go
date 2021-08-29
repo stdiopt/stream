@@ -9,7 +9,7 @@ import (
 	"github.com/stdiopt/stream/x/strmio"
 )
 
-// JSONDecode parses the []byte input as json and send the object
+// Decode parses the []byte input as json and send the object
 // interface can the type of object that will parse and send
 //		type MyType struct {
 //			Name string
