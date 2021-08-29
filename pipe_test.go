@@ -23,13 +23,13 @@ func Test_pipe_newChan(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   *procChan
+		want   *pipeChan
 	}{
 		{
 			name:   "returns new proc channel",
 			fields: fields{},
 			args:   args{context.TODO(), 0},
-			want: &procChan{
+			want: &pipeChan{
 				ctx:  context.TODO(),
 				ch:   make(chan interface{}),
 				done: make(chan struct{}),
@@ -39,7 +39,7 @@ func Test_pipe_newChan(t *testing.T) {
 			name:   "returns new buffered proc channel",
 			fields: fields{},
 			args:   args{context.TODO(), 5},
-			want: &procChan{
+			want: &pipeChan{
 				ctx:  context.TODO(),
 				ch:   make(chan interface{}, 5),
 				done: make(chan struct{}),
@@ -53,7 +53,7 @@ func Test_pipe_newChan(t *testing.T) {
 			}
 			gotProc := p.newChan(tt.args.ctx, tt.args.buffer)
 
-			got, ok := gotProc.(*procChan)
+			got, ok := gotProc.(*pipeChan)
 			if !ok {
 				t.Errorf("newProcChan() should be *procChan = %v, want %v", ok, true)
 			}

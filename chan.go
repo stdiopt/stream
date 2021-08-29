@@ -7,29 +7,29 @@ import (
 
 type ConsumerFunc = func(interface{}) error
 
-// procChan wraps a channel and a context for cancellation awareness.
-type procChan struct {
+// pipeChan wraps a channel and a context for cancellation awareness.
+type pipeChan struct {
 	ctx  context.Context
 	ch   chan interface{}
 	done chan struct{}
 }
 
-// newProcChan returns a Chan based on context with specific buffer size.
-func newProcChan(ctx context.Context, buffer int) *procChan {
-	return &procChan{
+// newPipeChan returns a Chan based on context with specific buffer size.
+func newPipeChan(ctx context.Context, buffer int) *pipeChan {
+	return &pipeChan{
 		ctx:  ctx,
 		ch:   make(chan interface{}, buffer),
 		done: make(chan struct{}),
 	}
 }
 
-func (c procChan) Context() context.Context {
+func (c pipeChan) Context() context.Context {
 	return c.ctx
 }
 
 // Send sends v to the underlying channel if context is cancelled it will return
 // the underlying ctx.Err()
-func (c procChan) Send(v interface{}) error {
+func (c pipeChan) Send(v interface{}) error {
 	// Check for canceled first then try to send
 	// this way we avoid sending unexpectedly
 	select {
@@ -54,7 +54,7 @@ func (c procChan) Send(v interface{}) error {
 // block until either context is cancelled, channel is closed or ConsumerFunc
 // error
 // is not nil
-func (c procChan) Consume(ifn interface{}) error {
+func (c pipeChan) Consume(ifn interface{}) error {
 	fn := MakeConsumerFunc(ifn)
 	for {
 		select {
@@ -77,7 +77,7 @@ func (c procChan) Consume(ifn interface{}) error {
 	}
 }
 
-func (c procChan) cancel() {
+func (c pipeChan) cancel() {
 	select {
 	case <-c.done:
 	default:
@@ -86,6 +86,6 @@ func (c procChan) cancel() {
 }
 
 // Close closes the channel can close a closed channel.
-func (c procChan) close() {
+func (c pipeChan) close() {
 	close(c.ch)
 }

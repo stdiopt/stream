@@ -19,7 +19,7 @@ type pipe struct {
 
 // newChan creates a new channel.
 func (p pipe) newChan(ctx context.Context, buffer int) Proc {
-	return newProcChan(ctx, buffer)
+	return newPipeChan(ctx, buffer)
 }
 
 // run makes a proc and calls the pipe proc func

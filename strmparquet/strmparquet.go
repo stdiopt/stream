@@ -1,6 +1,7 @@
 package strmparquet
 
 import (
+	"errors"
 	"os"
 	"reflect"
 	"time"
@@ -49,6 +50,9 @@ func Encode() strm.Pipe {
 		return p.Consume(func(v interface{}) error {
 			if fw == nil {
 				w := strmio.AsWriter(p)
+				if v == nil {
+					return errors.New("cannot encode nil value")
+				}
 				// Setup parquet Writer
 				pw := goparquet.NewFileWriter(w,
 					goparquet.WithSchemaDefinition(schemaFrom(v)),

@@ -10,6 +10,25 @@ import (
 	"github.com/stdiopt/stream/strmio"
 )
 
+// Encode receives a []string and encodes into []bytes writing the hdr first if any.
+func Encode(comma rune, hdr ...string) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
+		w := strmio.AsWriter(p)
+
+		cw := csv.NewWriter(w)
+		defer cw.Flush()
+		cw.Comma = comma
+		if len(hdr) > 0 {
+			if err := cw.Write(hdr); err != nil {
+				return err
+			}
+		}
+		return p.Consume(func(row []string) error {
+			return cw.Write(row)
+		})
+	})
+}
+
 // Decode receives bytes and produces [][]string fields?
 func Decode(comma rune) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {

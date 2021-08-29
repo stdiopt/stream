@@ -121,8 +121,8 @@ func TestLine(t *testing.T) {
 				ctx = context.TODO()
 			}
 
-			sender := newProcChan(ctx, 0)
-			consumer := newProcChan(ctx, 0)
+			sender := newPipeChan(ctx, 0)
+			consumer := newPipeChan(ctx, 0)
 			wg := sync.WaitGroup{}
 			wg.Add(2)
 			go func() {
@@ -335,8 +335,8 @@ func TestWorkers(t *testing.T) {
 
 			var got map[interface{}]int
 
-			sender := newProcChan(ctx, 0)
-			consumer := newProcChan(ctx, 0)
+			sender := newPipeChan(ctx, 0)
+			consumer := newPipeChan(ctx, 0)
 			wg := sync.WaitGroup{}
 			wg.Add(2)
 			go func() {
@@ -410,8 +410,8 @@ func TestBuffer(t *testing.T) {
 				ctx = context.TODO()
 			}
 
-			sender := newProcChan(ctx, 0)
-			consumer := newProcChan(ctx, 0)
+			sender := newPipeChan(ctx, 0)
+			consumer := newPipeChan(ctx, 0)
 			wg := sync.WaitGroup{}
 			wg.Add(2)
 			go func() {

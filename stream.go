@@ -151,3 +151,9 @@ func RunWithContext(ctx context.Context, pps ...Pipe) error {
 	defer cancel()
 	return Line(pps...).Run(ctx, nil, nil)
 }
+
+func RunFrom(p Proc, pps ...Pipe) error {
+	ctx, cancel := context.WithCancel(p.Context())
+	defer cancel()
+	return Line(pps...).Run(ctx, p, p)
+}

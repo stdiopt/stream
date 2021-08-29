@@ -25,7 +25,9 @@ type s3uploader interface {
 // https://pkg.go.dev/github.com/aws/aws-sdk-go@v1.40.30/service/s3/s3manager#NewUploader
 func Upload(upl s3uploader, s3url string) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
-		r := io.TeeReader(strmio.AsReader(p), strmio.AsWriter(p))
+		pr := strmio.AsReader(p)
+		defer pr.Close()
+		r := io.TeeReader(pr, strmio.AsWriter(p))
 
 		u, err := url.Parse(s3url)
 		if err != nil {

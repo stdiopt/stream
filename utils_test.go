@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 )
 
 func matchError(match string, err error) bool {
@@ -45,4 +46,26 @@ type fakeConsumer struct {
 type fakeSender struct {
 	s string
 	Sender
+}
+
+type contextHelper struct {
+	context.Context
+	cancel func()
+}
+
+func helperCanceledContext() context.Context {
+	ctx, cancel := context.WithCancel(context.TODO())
+	cancel()
+	return contextHelper{
+		ctx,
+		cancel,
+	}
+}
+
+func helperTimeoutContext(d time.Duration) context.Context {
+	ctx, cancel := context.WithTimeout(context.TODO(), d)
+	return contextHelper{
+		ctx,
+		cancel,
+	}
 }

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func Test_newProcChan(t *testing.T) {
+func Test_newPipeChan(t *testing.T) {
 	type args struct {
 		ctx    context.Context
 		buffer int
@@ -18,12 +18,12 @@ func Test_newProcChan(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *procChan
+		want *pipeChan
 	}{
 		{
-			name: "returns a new procChan",
+			name: "returns a new PipeChan",
 			args: args{context.TODO(), 0},
-			want: &procChan{
+			want: &pipeChan{
 				ctx:  context.TODO(),
 				ch:   make(chan interface{}),
 				done: make(chan struct{}),
@@ -32,7 +32,7 @@ func Test_newProcChan(t *testing.T) {
 		{
 			name: "returns a new buffered chan",
 			args: args{context.TODO(), 2},
-			want: &procChan{
+			want: &pipeChan{
 				ctx:  context.TODO(),
 				ch:   make(chan interface{}, 2),
 				done: make(chan struct{}),
@@ -41,31 +41,31 @@ func Test_newProcChan(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := newProcChan(tt.args.ctx, tt.args.buffer)
+			got := newPipeChan(tt.args.ctx, tt.args.buffer)
 
 			if !reflect.DeepEqual(got.ctx, tt.want.ctx) {
-				t.Errorf("newProcChan().ctx = %v, want %v", got.ctx, tt.want.ctx)
+				t.Errorf("newPipeChan().ctx = %v, want %v", got.ctx, tt.want.ctx)
 			}
 
 			if (got.done == nil) != (tt.want.done == nil) {
-				t.Errorf("(newProcChan().done == nil) = %v, want %v", got.done == nil, tt.want.done == nil)
+				t.Errorf("(newPipeChan().done == nil) = %v, want %v", got.done == nil, tt.want.done == nil)
 			}
 			if cap(got.done) != cap(tt.want.done) {
-				t.Errorf("cap(newProcChan().done) = %v, want %v", cap(got.done), cap(tt.want.done))
+				t.Errorf("cap(newPipeChan().done) = %v, want %v", cap(got.done), cap(tt.want.done))
 			}
 
 			if (got.ch == nil) != (tt.want.ch == nil) {
-				t.Errorf("(newProcChan().ch == nil) = %v, want %v", got.ch == nil, tt.want.ch == nil)
+				t.Errorf("(newPipeChan().ch == nil) = %v, want %v", got.ch == nil, tt.want.ch == nil)
 			}
 
 			if cap(got.ch) != cap(tt.want.ch) {
-				t.Errorf("cap(newProcChan().ch) = %v, want %v", cap(got.ch), cap(tt.want.ch))
+				t.Errorf("cap(newPipeChan().ch) = %v, want %v", cap(got.ch), cap(tt.want.ch))
 			}
 		})
 	}
 }
 
-func Test_procChan_Context(t *testing.T) {
+func Test_pipeChan_Context(t *testing.T) {
 	type fields struct {
 		ctx  context.Context
 		ch   chan interface{}
@@ -84,19 +84,19 @@ func Test_procChan_Context(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := procChan{
+			c := pipeChan{
 				ctx:  tt.fields.ctx,
 				ch:   tt.fields.ch,
 				done: tt.fields.done,
 			}
 			if got := c.Context(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("procChan.Context() = %v, want %v", got, tt.want)
+				t.Errorf("PipeChan.Context() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_procChan_Send(t *testing.T) {
+func Test_pipeChan_Send(t *testing.T) {
 	type fields struct {
 		ctx  context.Context
 		ch   chan interface{}
@@ -176,7 +176,7 @@ func Test_procChan_Send(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := procChan{
+			c := pipeChan{
 				ctx:  tt.fields.ctx,
 				ch:   tt.fields.ch,
 				done: tt.fields.done,
@@ -194,18 +194,18 @@ func Test_procChan_Send(t *testing.T) {
 			}
 
 			if err := c.Send(tt.args.v); !matchError(tt.wantErr, err) {
-				t.Errorf("procChan.Send() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PipeChan.Send() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			c.close()
 			<-done
 			if !reflect.DeepEqual(consumed, tt.wantConsumed) {
-				t.Errorf("procChan.Send() consumed = %v, want %v", consumed, tt.wantConsumed)
+				t.Errorf("PipeChan.Send() consumed = %v, want %v", consumed, tt.wantConsumed)
 			}
 		})
 	}
 }
 
-func Test_procChan_Consume(t *testing.T) {
+func Test_pipeChan_Consume(t *testing.T) {
 	type fields struct {
 		ctx  context.Context
 		ch   chan interface{}
@@ -218,7 +218,7 @@ func Test_procChan_Consume(t *testing.T) {
 		name         string
 		fields       fields
 		argsfn       func(*interface{}) args
-		closeSend    func(*procChan)
+		closeSend    func(*pipeChan)
 		send         interface{}
 		wantConsumed interface{}
 		wantErr      string
@@ -334,7 +334,7 @@ func Test_procChan_Consume(t *testing.T) {
 					return ch
 				}(),
 			},
-			closeSend: func(c *procChan) {
+			closeSend: func(c *pipeChan) {
 				go func() {
 					time.Sleep(time.Second)
 					close(c.ch)
@@ -351,14 +351,14 @@ func Test_procChan_Consume(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := procChan{
+			c := pipeChan{
 				ctx:  tt.fields.ctx,
 				ch:   tt.fields.ch,
 				done: tt.fields.done,
 			}
 			closeSend := tt.closeSend
 			if closeSend == nil {
-				closeSend = func(*procChan) { c.close() }
+				closeSend = func(*pipeChan) { c.close() }
 			}
 			if tt.send != nil {
 				go func() {
@@ -374,22 +374,22 @@ func Test_procChan_Consume(t *testing.T) {
 					err = fmt.Errorf("%v", p)
 				}
 				if !matchError(tt.wantPanic, err) {
-					t.Errorf("procChan.Send() panic = %v, wantPanic %v", err, tt.wantPanic)
+					t.Errorf("PipeChan.Send() panic = %v, wantPanic %v", err, tt.wantPanic)
 				}
 			}()
 			var consumed interface{}
 			a := tt.argsfn(&consumed)
 			if err := c.Consume(a.ifn); !matchError(tt.wantErr, err) {
-				t.Errorf("procChan.Consume() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PipeChan.Consume() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(consumed, tt.wantConsumed) {
-				t.Errorf("procChan.Consume() consumed = %v, want %v", consumed, tt.wantConsumed)
+				t.Errorf("PipeChan.Consume() consumed = %v, want %v", consumed, tt.wantConsumed)
 			}
 		})
 	}
 }
 
-func Test_procChan_cancel(t *testing.T) {
+func Test_pipeChan_cancel(t *testing.T) {
 	type fields struct {
 		ctx  context.Context
 		ch   chan interface{}
@@ -410,7 +410,7 @@ func Test_procChan_cancel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := procChan{
+			c := pipeChan{
 				ctx:  tt.fields.ctx,
 				ch:   tt.fields.ch,
 				done: tt.fields.done,
@@ -423,13 +423,13 @@ func Test_procChan_cancel(t *testing.T) {
 			case <-time.After(2 * time.Second):
 			}
 			if cancelled == false {
-				t.Errorf("procChan.cancel() cancelled = %v, want %v", cancelled, true)
+				t.Errorf("PipeChan.cancel() cancelled = %v, want %v", cancelled, true)
 			}
 		})
 	}
 }
 
-func Test_procChan_close(t *testing.T) {
+func Test_pipeChan_close(t *testing.T) {
 	type fields struct {
 		ctx  context.Context
 		ch   chan interface{}
@@ -450,7 +450,7 @@ func Test_procChan_close(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := procChan{
+			c := pipeChan{
 				ctx:  tt.fields.ctx,
 				ch:   tt.fields.ch,
 				done: tt.fields.done,
@@ -463,30 +463,8 @@ func Test_procChan_close(t *testing.T) {
 			case <-time.After(2 * time.Second):
 			}
 			if closed == false {
-				t.Errorf("procChan.cancel() closed = %v, want %v", closed, true)
+				t.Errorf("PipeChan.cancel() closed = %v, want %v", closed, true)
 			}
 		})
-	}
-}
-
-type contextHelper struct {
-	context.Context
-	cancel func()
-}
-
-func helperCanceledContext() context.Context {
-	ctx, cancel := context.WithCancel(context.TODO())
-	cancel()
-	return contextHelper{
-		ctx,
-		cancel,
-	}
-}
-
-func helperTimeoutContext(d time.Duration) context.Context {
-	ctx, cancel := context.WithTimeout(context.TODO(), d)
-	return contextHelper{
-		ctx,
-		cancel,
 	}
 }
