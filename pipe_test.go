@@ -3,12 +3,10 @@ package stream
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/google/go-cmp/cmp"
 )
 
 func Test_pipe_newChan(t *testing.T) {
@@ -245,6 +243,7 @@ func TestFunc(t *testing.T) {
 	}
 }
 
+/*
 func TestT(t *testing.T) {
 	type args struct {
 		fn interface{}
@@ -515,3 +514,4 @@ func TestS(t *testing.T) {
 		})
 	}
 }
+*/

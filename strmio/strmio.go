@@ -55,12 +55,14 @@ func WithReader() strm.Pipe {
 
 // Writer consumes []byte and writes to io.Writer
 func Writer(w io.Writer) strm.Pipe {
-	return strm.S(func(s strm.Sender, b []byte) error {
-		_, err := w.Write(b)
-		if err != nil {
-			return err
-		}
-		return s.Send(b)
+	return strm.Func(func(p strm.Proc) error {
+		return p.Consume(func(b []byte) error {
+			_, err := w.Write(b)
+			if err != nil {
+				return err
+			}
+			return p.Send(b)
+		})
 	})
 }
 

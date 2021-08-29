@@ -2,14 +2,13 @@ package stream
 
 import (
 	"context"
-	"reflect"
 )
 
 // Pipe interface for internal use along the pipe line constructor.
 // Functions like Func, T, S, will return a Pipe.
 type Pipe interface {
 	Run(context.Context, Consumer, Sender) error
-	newChan(context.Context, int) Proc
+	newChan(context.Context, int) Chan
 }
 
 // pipe constructor returned by Func.
@@ -18,7 +17,7 @@ type pipe struct {
 }
 
 // newChan creates a new channel.
-func (p pipe) newChan(ctx context.Context, buffer int) Proc {
+func (p pipe) newChan(ctx context.Context, buffer int) Chan {
 	return newPipeChan(ctx, buffer)
 }
 
@@ -34,6 +33,7 @@ func Func(fn func(Proc) error) Pipe {
 	return pipe{wrapProcFunc(pname, fn)}
 }
 
+/*
 // T accepts functions with signature func(T1)(T2, error) where it's called when
 // it consumes value and sends the result if no error
 func T(fn interface{}) Pipe {
@@ -143,3 +143,4 @@ func makeTProcFunc(fn interface{}) procFunc {
 		}
 	}
 }
+*/

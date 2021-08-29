@@ -1,6 +1,7 @@
 package strmdiag
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -17,7 +18,9 @@ type Counter struct {
 	duration time.Duration
 	counts   map[string]int
 	dcount   int
-	w        io.Writer
+
+	lastCheck time.Time
+	w         io.Writer
 }
 
 func NewCounter(w io.Writer, d time.Duration) *Counter {
@@ -52,8 +55,14 @@ func (c *Counter) WriteCount() {
 }
 
 func (c *Counter) writeCount() {
-	perSec := float64(c.dcount) / float64(c.duration) * float64(time.Second)
-	fmt.Fprintf(c.w, "Processed messages: %v %.2f/s\n", c.counts, perSec)
+	dur := time.Since(c.lastCheck)
+	c.lastCheck = time.Now()
+	perSec := float64(c.dcount) / float64(dur) * float64(time.Second)
+	buf := bytes.Buffer{}
+	for k, v := range c.counts {
+		fmt.Fprintf(&buf, "(%v: %s)", k, humanize(float64(v)))
+	}
+	fmt.Fprintf(c.w, "Processed messages: %v - %v/s\n", buf.String(), humanize(perSec))
 }
 
 func Count(d time.Duration) strm.Pipe {
@@ -65,4 +74,13 @@ func Count(d time.Duration) strm.Pipe {
 			return p.Send(v)
 		})
 	})
+}
+
+func humanize(count float64) string {
+	units := []string{"", "k", "M", "T"}
+	cur := 0
+	for ; count > 1000 && cur < len(units); cur++ {
+		count /= 1000
+	}
+	return fmt.Sprintf("%.02f%s", count, units[cur])
 }

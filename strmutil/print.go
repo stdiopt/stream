@@ -19,13 +19,15 @@ func Print(prefix string) strm.Pipe {
 	if prefix != "" {
 		prefix = fmt.Sprintf("[%s] ", prefix)
 	}
-	return strm.S(func(p strm.Sender, v interface{}) error {
-		switch v := v.(type) {
-		case []byte:
-			fmt.Fprintf(stdout, "%s%v\n", prefix, string(v))
-		default:
-			fmt.Fprintf(stdout, "%s%v\n", prefix, v)
-		}
-		return p.Send(v)
+	return strm.Func(func(p strm.Proc) error {
+		return p.Consume(func(v interface{}) error {
+			switch v := v.(type) {
+			case []byte:
+				fmt.Fprintf(stdout, "%s%v\n", prefix, string(v))
+			default:
+				fmt.Fprintf(stdout, "%s%v\n", prefix, v)
+			}
+			return p.Send(v)
+		})
 	})
 }

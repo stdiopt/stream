@@ -4,6 +4,13 @@ import (
 	"context"
 )
 
+type Chan interface {
+	Context() context.Context
+	Consume(interface{}) error
+	Send(interface{}) error
+	cancel()
+	close()
+}
 type ConsumerFunc = func(interface{}) error
 
 // pipeChan wraps a channel and a context for cancellation awareness.

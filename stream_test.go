@@ -61,13 +61,15 @@ func TestLine(t *testing.T) {
 		{
 			name: "run multiple output",
 			args: args{[]Pipe{
-				S(func(s Sender, n int) error {
-					for i := 0; i < n; i++ {
-						if err := s.Send(i); err != nil {
-							return err
+				Func(func(p Proc) error {
+					return p.Consume(func(n int) error {
+						for i := 0; i < n; i++ {
+							if err := p.Send(i); err != nil {
+								return err
+							}
 						}
-					}
-					return nil
+						return nil
+					})
 				}),
 			}},
 			send: 5,

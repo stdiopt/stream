@@ -18,11 +18,17 @@ type Sender interface {
 	close()
 }
 
+type Logger interface {
+	Println(...interface{})
+	Printf(string, ...interface{})
+}
+
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
 // func.
 type Proc interface {
 	Sender
 	Consumer
+	Logger
 }
 
 type procFunc = func(Proc) error
@@ -75,7 +81,7 @@ func Tee(pps ...Pipe) Pipe {
 	return pipe{func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		// iproc
-		chs := make([]Proc, len(pps))
+		chs := make([]Chan, len(pps))
 		for i, pp := range pps {
 			ch := pp.newChan(ctx, 0)
 			pp := pp

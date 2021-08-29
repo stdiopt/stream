@@ -7,8 +7,10 @@ import (
 )
 
 func Wait(d time.Duration) strm.Pipe {
-	return strm.S(func(s strm.Sender, v interface{}) error {
-		time.Sleep(d)
-		return s.Send(v)
+	return strm.Func(func(p strm.Proc) error {
+		return p.Consume(func(v interface{}) error {
+			time.Sleep(d)
+			return p.Send(v)
+		})
 	})
 }

@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/bwmarrin/snowflake"
@@ -52,6 +53,14 @@ func (p proc) cancel() {
 		return
 	}
 	p.Consumer.cancel()
+}
+
+func (p proc) Println(args ...interface{}) {
+	log.Println(args...)
+}
+
+func (p proc) Printf(format string, args ...interface{}) {
+	log.Printf(format, args...)
 }
 
 // MakeConsumerFunc returns a consumerFunc

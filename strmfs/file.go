@@ -42,13 +42,15 @@ func WriteFile(path string) strm.Pipe {
 }
 
 func ReadFile() strm.Pipe {
-	return strm.S(func(s strm.Sender, path string) error {
-		w := strmio.AsWriter(s)
-		f, err := os.Open(path)
-		if err != nil {
+	return strm.Func(func(p strm.Proc) error {
+		return p.Consume(func(path string) error {
+			w := strmio.AsWriter(p)
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(w, f)
 			return err
-		}
-		_, err = io.Copy(w, f)
-		return err
+		})
 	})
 }
