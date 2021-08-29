@@ -8,11 +8,11 @@ import (
 
 	_ "github.com/gohxs/prettylog/global"
 	"github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmjson"
 	"github.com/stdiopt/stream/strmrefl"
 	"github.com/stdiopt/stream/strmutil"
 	"github.com/stdiopt/stream/x/strmagg"
 	"github.com/stdiopt/stream/x/strmhttp"
-	"github.com/stdiopt/stream/x/strmjson"
 )
 
 // Experiment streaming values
