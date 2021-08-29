@@ -5,51 +5,57 @@ import (
 	"testing"
 	"time"
 
-	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmtest"
 )
 
 func TestWait(t *testing.T) {
+	type args struct {
+		d time.Duration
+	}
 	tests := []struct {
 		name         string
-		pipe         strm.Pipe
+		args         args
 		send         []interface{}
 		senderError  error
 		want         []interface{}
 		wantDuration time.Duration
-		wantErrorRE  string
+		wantErr      string
 	}{
 		{
 			name:         "waits the duration",
-			pipe:         Wait(500 * time.Millisecond),
+			args:         args{500 * time.Millisecond},
 			send:         []interface{}{'x'},
 			want:         []interface{}{'x'},
 			wantDuration: 499 * time.Millisecond,
 		},
 		{
 			name:         "waits the duration for each value",
-			pipe:         Wait(200 * time.Millisecond),
+			args:         args{200 * time.Millisecond},
 			send:         []interface{}{1, 2},
 			want:         []interface{}{1, 2},
 			wantDuration: 399 * time.Millisecond,
 		},
 		{
 			name:        "returns error when sender errors",
-			pipe:        Wait(200 * time.Millisecond),
+			args:        args{200 * time.Millisecond},
 			send:        []interface{}{1},
 			senderError: errors.New("sender error"),
-			wantErrorRE: "strmutil.Wait.* sender error$",
+			wantErr:     "strmutil.Wait.* sender error$",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := strmtest.New(t, tt.pipe)
+			pp := Wait(tt.args.d)
+			if pp == nil {
+				t.Errorf("Wait() is nil = %v, want %v", pp == nil, false)
+			}
+
+			st := strmtest.New(t, pp)
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}
 			st.ExpectFull(tt.want...).
-				ExpectError(tt.wantErrorRE).
+				ExpectError(tt.wantErr).
 				ExpectMinDuration(tt.wantDuration).
 				Run()
 		})

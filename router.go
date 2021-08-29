@@ -8,6 +8,8 @@ import (
 
 // Experimental routing
 
+// Route will route data through specific pipe, pipes will only be cleared if
+// route pipeline goes away.
 func Route(fn interface{}, sub func(k string) Pipe) Pipe {
 	routefn := makeRouteFunc(fn)
 	return pipe{func(p Proc) (err error) {

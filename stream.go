@@ -158,6 +158,8 @@ func RunWithContext(ctx context.Context, pps ...Pipe) error {
 	return Line(pps...).Run(ctx, nil, nil)
 }
 
+// RunFrom utility to run a pipeline from within a pipe func.
+// it will consume from a Proc and send to Proc
 func RunFrom(p Proc, pps ...Pipe) error {
 	ctx, cancel := context.WithCancel(p.Context())
 	defer cancel()

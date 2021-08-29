@@ -34,12 +34,6 @@ func Func(fn func(Proc) error) Pipe {
 	return pipe{wrapProcFunc(pname, fn)}
 }
 
-// T accepts functions with signature func(T1)(T2, error) where it's called when
-// it consumes value and sends the result if no error
-func T(fn interface{}) Pipe {
-	return pipe{wrapProcFunc(procName(), makeTProcFunc(fn))}
-}
-
 // S function that accepts a signature in the form of
 // func(Sender, T) error and it's called when a value is received
 // Sender can be called multiple times
@@ -99,6 +93,12 @@ func makeSProcFunc(fn interface{}) procFunc {
 	}
 }
 
+/*
+// T accepts functions with signature func(T1)(T2, error) where it's called when
+// it consumes value and sends the result if no error
+func T(fn interface{}) Pipe {
+	return pipe{wrapProcFunc(procName(), makeTProcFunc(fn))}
+}
 func makeTProcFunc(fn interface{}) procFunc {
 	switch fn := fn.(type) {
 	case func(interface{}) (interface{}, error):
@@ -142,4 +142,4 @@ func makeTProcFunc(fn interface{}) procFunc {
 			return err
 		}
 	}
-}
+}*/

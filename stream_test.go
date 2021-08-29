@@ -182,11 +182,11 @@ func TestTee(t *testing.T) {
 		{
 			name: "send to multiple pipes",
 			args: args{[]Pipe{
-				T(func(v interface{}) (string, error) {
-					return fmt.Sprintf("Pipe 1: %v", v), nil
+				S(func(s Sender, v interface{}) error {
+					return s.Send(fmt.Sprintf("Pipe 1: %v", v))
 				}),
-				T(func(v interface{}) (string, error) {
-					return fmt.Sprintf("Pipe 2: %v", v), nil
+				S(func(s Sender, v interface{}) error {
+					return s.Send(fmt.Sprintf("Pipe 2: %v", v))
 				}),
 			}},
 			sends: []interface{}{1},
@@ -198,11 +198,11 @@ func TestTee(t *testing.T) {
 		{
 			name: "returns error when a pipe errors",
 			args: args{[]Pipe{
-				T(func(v interface{}) (string, error) {
-					return fmt.Sprintf("Pipe 1: %v", v), nil
+				S(func(s Sender, v interface{}) error {
+					return s.Send(fmt.Sprintf("Pipe 1: %v", v))
 				}),
-				T(func(v interface{}) (string, error) {
-					return "", errors.New("pipe error")
+				S(func(s Sender, _ interface{}) error {
+					return errors.New("pipe error")
 				}),
 			}},
 			sends: []interface{}{1},
@@ -219,12 +219,12 @@ func TestTee(t *testing.T) {
 				return ctx
 			}(),
 			args: args{[]Pipe{
-				T(func(v interface{}) (string, error) {
+				S(func(s Sender, v interface{}) error {
 					time.Sleep(time.Millisecond)
-					return fmt.Sprintf("Pipe 1: %v", v), nil
+					return s.Send(fmt.Sprintf("Pipe 1: %v", v))
 				}),
-				T(func(v interface{}) (string, error) {
-					return fmt.Sprintf("Pipe 2: %v", v), nil
+				S(func(s Sender, v interface{}) error {
+					return s.Send(fmt.Sprintf("Pipe 2: %v", v))
 				}),
 			}},
 			sends:   []interface{}{1},
@@ -305,9 +305,9 @@ func TestWorkers(t *testing.T) {
 			args: args{
 				n: 8,
 				pps: []Pipe{
-					T(func(v interface{}) (interface{}, error) {
+					S(func(s Sender, v interface{}) error {
 						time.Sleep(time.Second)
-						return v, nil
+						return s.Send(v)
 					}),
 				},
 			},
