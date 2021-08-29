@@ -79,7 +79,7 @@ func makeSProcFunc(fn interface{}) procFunc {
 			}
 			args := make([]reflect.Value, 2)
 			args[0] = reflect.ValueOf(Sender(p))
-			err := p.Consume(func(v interface{}) error {
+			return p.Consume(func(v interface{}) error {
 				if v == nil {
 					args[1] = reflect.New(fnTyp.In(1)).Elem()
 				} else {
@@ -95,7 +95,6 @@ func makeSProcFunc(fn interface{}) procFunc {
 				}
 				return nil
 			})
-			return err
 		}
 	}
 }

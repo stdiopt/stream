@@ -2,13 +2,16 @@
 package strmzip
 
 import (
+	"archive/zip"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/krolaw/zipstream"
 	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmio"
+	"github.com/stdiopt/stream/strmutil"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -55,5 +58,56 @@ func Stream(pattern string) strm.Pipe {
 			return nil
 		}
 		return err
+	})
+}
+
+// EachArchive receives []byte and stores into a tempfile, it will send filename
+// after EOF.
+func EachArchive(pattern string, pps ...strm.Pipe) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
+		r := strmio.AsReader(p)
+
+		tmp, err := os.CreateTemp(os.TempDir(), "strmzip-*")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tmp.Name())
+
+		// Copy to temporary file
+		_, err = func() (int64, error) {
+			defer tmp.Close()
+			return io.Copy(tmp, r)
+		}()
+		if err != nil {
+			return err
+		}
+
+		f, err := zip.OpenReader(tmp.Name())
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		for _, e := range f.File {
+			if ok, err := filepath.Match(pattern, e.Name); !ok || err != nil {
+				continue
+			}
+			rd, err := e.Open()
+			if err != nil {
+				return err
+			}
+			err = func() error {
+				defer rd.Close()
+				return strm.RunWithContext(p.Context(),
+					strmio.Reader(rd),
+					strm.Line(pps...),
+					strmutil.Pass(p),
+				)
+			}()
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }

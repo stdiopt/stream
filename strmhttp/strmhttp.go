@@ -46,7 +46,7 @@ func GetResponse(reqFunc ...RequestFunc) strm.Pipe {
 }
 
 // Get receives a stream of urls performs a get request and sends the
-// content as []byte
+// content as []byte returns error on status < 200 || >= 400
 func Get(reqFunc ...RequestFunc) strm.Pipe {
 	return strm.S(func(p strm.Sender, url string) error {
 		req, err := http.NewRequestWithContext(p.Context(), http.MethodGet, url, nil)
@@ -63,9 +63,11 @@ func Get(reqFunc ...RequestFunc) strm.Pipe {
 			return err
 		}
 		defer res.Body.Close()
+		if res.StatusCode < 200 || res.StatusCode >= 400 {
+			return fmt.Errorf("http status code: %d - %v", res.StatusCode, res.Status)
+		}
 
 		w := strmio.AsWriter(p)
-
 		_, err = io.Copy(w, res.Body)
 		return err
 	})
