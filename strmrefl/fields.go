@@ -19,14 +19,12 @@ type FMap map[string]Fields
 // on a map it will walk through map
 // on a slice it's possible to have Field1.0.Field2
 func Extract(f ...interface{}) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		return p.Consume(func(v interface{}) error {
-			val, err := FieldOf(v, f...)
-			if err != nil {
-				return err
-			}
-			return p.Send(val)
-		})
+	return strm.S(func(s strm.Sender, v interface{}) error {
+		val, err := FieldOf(v, f...)
+		if err != nil {
+			return err
+		}
+		return s.Send(val)
 	})
 }
 
@@ -35,25 +33,23 @@ func StructMap(target interface{}, fm FMap) strm.Pipe {
 		panic("target value is nil")
 	}
 	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
-	return strm.Func(func(p strm.Proc) error {
-		return p.Consume(func(v interface{}) error {
-			sv := reflect.New(typ)
-			vv := sv.Elem()
-			for k, f := range fm {
+	return strm.S(func(p strm.Sender, v interface{}) error {
+		sv := reflect.New(typ)
+		vv := sv.Elem()
+		for k, f := range fm {
 
-				field := vv.FieldByName(k)
-				if !field.IsValid() {
-					return fmt.Errorf("field not found %q in %T", k, target)
-				}
-
-				val, err := FieldOf(v, f...)
-				if err != nil {
-					return err
-				}
-				field.Set(reflect.ValueOf(val))
+			field := vv.FieldByName(k)
+			if !field.IsValid() {
+				return fmt.Errorf("field not found %q in %T", k, target)
 			}
-			return p.Send(vv.Interface())
-		})
+
+			val, err := FieldOf(v, f...)
+			if err != nil {
+				return err
+			}
+			field.Set(reflect.ValueOf(val))
+		}
+		return p.Send(vv.Interface())
 	})
 }
 

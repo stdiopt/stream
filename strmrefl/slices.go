@@ -8,20 +8,18 @@ import (
 
 // Unslice consumes slices and sends each slice element.
 func Unslice() strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		return p.Consume(func(v interface{}) error {
-			val := reflect.Indirect(reflect.ValueOf(v))
-			if val.Type().Kind() != reflect.Slice {
-				return p.Send(v)
-			}
+	return strm.S(func(p strm.Sender, v interface{}) error {
+		val := reflect.Indirect(reflect.ValueOf(v))
+		if val.Type().Kind() != reflect.Slice {
+			return p.Send(v)
+		}
 
-			for i := 0; i < val.Len(); i++ {
-				if err := p.Send(val.Index(i).Interface()); err != nil {
-					return err
-				}
+		for i := 0; i < val.Len(); i++ {
+			if err := p.Send(val.Index(i).Interface()); err != nil {
+				return err
 			}
-			return nil
-		})
+		}
+		return nil
 	})
 }
 

@@ -33,6 +33,8 @@ func Skip(pps ...strm.Pipe) strm.Pipe {
 	})
 }
 
+// Retry retries the consumed value on error
+// this might restart any proc reseting the state
 func Retry(n int, pps ...strm.Pipe) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		o := strm.Override{

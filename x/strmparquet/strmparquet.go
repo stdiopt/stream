@@ -2,7 +2,6 @@ package strmparquet
 
 import (
 	"errors"
-	"log"
 	"os"
 	"reflect"
 	"time"
@@ -18,28 +17,26 @@ import (
 // DecodeFile receives a string path and outputs T.
 func DecodeFile(sample interface{}) strm.Pipe {
 	typ := reflect.TypeOf(sample)
-	return strm.Func(func(p strm.Proc) error {
-		return p.Consume(func(path string) error {
-			f, err := os.Open(path)
-			if err != nil {
+	return strm.S(func(p strm.Sender, path string) error {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		pr, err := goparquet.NewFileReader(f)
+		if err != nil {
+			return err
+		}
+		fr := floor.NewReader(pr)
+		for fr.Next() {
+			v := reflect.New(typ)
+			if err := fr.Scan(v.Interface()); err != nil {
 				return err
 			}
-			pr, err := goparquet.NewFileReader(f)
-			if err != nil {
+			if err := p.Send(v.Elem().Interface()); err != nil {
 				return err
 			}
-			fr := floor.NewReader(pr)
-			for fr.Next() {
-				v := reflect.New(typ)
-				if err := fr.Scan(v.Interface()); err != nil {
-					return err
-				}
-				if err := p.Send(v.Elem().Interface()); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+		}
+		return nil
 	})
 }
 
@@ -55,11 +52,10 @@ func Encode() strm.Pipe {
 				return errors.New("cannot encode nil value")
 			}
 			if fw == nil {
-				log.Println("Create writer")
 				w := strmio.AsWriter(p)
 				// Setup parquet Writer
 				pw := goparquet.NewFileWriter(w,
-					goparquet.WithMaxRowGroupSize(100000),
+					goparquet.WithMaxRowGroupSize(1e6),
 					goparquet.WithSchemaDefinition(schemaFrom(v)),
 					goparquet.WithCompressionCodec(parquet.CompressionCodec_SNAPPY),
 				)

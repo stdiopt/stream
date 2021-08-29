@@ -61,15 +61,13 @@ func TestLine(t *testing.T) {
 		{
 			name: "run multiple output",
 			args: args{[]Pipe{
-				Func(func(p Proc) error {
-					return p.Consume(func(n int) error {
-						for i := 0; i < n; i++ {
-							if err := p.Send(i); err != nil {
-								return err
-							}
+				S(func(s Sender, n int) error {
+					for i := 0; i < n; i++ {
+						if err := s.Send(i); err != nil {
+							return err
 						}
-						return nil
-					})
+					}
+					return nil
 				}),
 			}},
 			send: 5,
@@ -91,15 +89,13 @@ func TestLine(t *testing.T) {
 		{
 			name: "break line",
 			args: args{[]Pipe{
-				Func(func(p Proc) error {
-					return p.Consume(func(interface{}) error {
-						for i := 0; i < 10; i++ {
-							if err := p.Send(i); err != nil {
-								return err
-							}
+				S(func(s Sender, _ interface{}) error {
+					for i := 0; i < 10; i++ {
+						if err := s.Send(i); err != nil {
+							return err
 						}
-						return nil
-					})
+					}
+					return nil
 				}),
 				Func(func(p Proc) error {
 					count := 0
@@ -186,15 +182,11 @@ func TestTee(t *testing.T) {
 		{
 			name: "send to multiple pipes",
 			args: args{[]Pipe{
-				Func(func(p Proc) error {
-					return p.Consume(func(v interface{}) error {
-						return p.Send(fmt.Sprintf("Pipe 1: %v", v))
-					})
+				T(func(v interface{}) (string, error) {
+					return fmt.Sprintf("Pipe 1: %v", v), nil
 				}),
-				Func(func(p Proc) error {
-					return p.Consume(func(v interface{}) error {
-						return p.Send(fmt.Sprintf("Pipe 2: %v", v))
-					})
+				T(func(v interface{}) (string, error) {
+					return fmt.Sprintf("Pipe 2: %v", v), nil
 				}),
 			}},
 			sends: []interface{}{1},
@@ -206,15 +198,11 @@ func TestTee(t *testing.T) {
 		{
 			name: "returns error when a pipe errors",
 			args: args{[]Pipe{
-				Func(func(p Proc) error {
-					return p.Consume(func(v interface{}) error {
-						return p.Send(fmt.Sprintf("Pipe 1: %v", v))
-					})
+				T(func(v interface{}) (string, error) {
+					return fmt.Sprintf("Pipe 1: %v", v), nil
 				}),
-				Func(func(p Proc) error {
-					return p.Consume(func(v interface{}) error {
-						return errors.New("pipe error")
-					})
+				T(func(v interface{}) (string, error) {
+					return "", errors.New("pipe error")
 				}),
 			}},
 			sends: []interface{}{1},
@@ -231,16 +219,12 @@ func TestTee(t *testing.T) {
 				return ctx
 			}(),
 			args: args{[]Pipe{
-
-				Func(func(p Proc) error {
-					return p.Consume(func(v interface{}) error {
-						return p.Send(fmt.Sprintf("Pipe 1: %v", v))
-					})
+				T(func(v interface{}) (string, error) {
+					time.Sleep(time.Millisecond)
+					return fmt.Sprintf("Pipe 1: %v", v), nil
 				}),
-				Func(func(p Proc) error {
-					return p.Consume(func(v interface{}) error {
-						return p.Send(fmt.Sprintf("Pipe 2: %v", v))
-					})
+				T(func(v interface{}) (string, error) {
+					return fmt.Sprintf("Pipe 2: %v", v), nil
 				}),
 			}},
 			sends:   []interface{}{1},
@@ -321,11 +305,9 @@ func TestWorkers(t *testing.T) {
 			args: args{
 				n: 8,
 				pps: []Pipe{
-					Func(func(p Proc) error {
-						return p.Consume(func(v interface{}) error {
-							time.Sleep(time.Second)
-							return p.Send(v)
-						})
+					T(func(v interface{}) (interface{}, error) {
+						time.Sleep(time.Second)
+						return v, nil
 					}),
 				},
 			},

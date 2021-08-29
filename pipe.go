@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"reflect"
 )
 
 // Pipe interface for internal use along the pipe line constructor.
@@ -33,7 +34,6 @@ func Func(fn func(Proc) error) Pipe {
 	return pipe{wrapProcFunc(pname, fn)}
 }
 
-/*
 // T accepts functions with signature func(T1)(T2, error) where it's called when
 // it consumes value and sends the result if no error
 func T(fn interface{}) Pipe {
@@ -143,4 +143,3 @@ func makeTProcFunc(fn interface{}) procFunc {
 		}
 	}
 }
-*/

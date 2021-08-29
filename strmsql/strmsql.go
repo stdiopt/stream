@@ -71,17 +71,15 @@ func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...in
 }
 
 func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		return p.Consume(func(v interface{}) error {
-			pparams, err := solveParams(v, params...)
-			if err != nil {
-				return err
-			}
-			if _, err := db.Exec(qry, pparams...); err != nil {
-				return err
-			}
-			return p.Send(v)
-		})
+	return strm.S(func(p strm.Sender, v interface{}) error {
+		pparams, err := solveParams(v, params...)
+		if err != nil {
+			return err
+		}
+		if _, err := db.Exec(qry, pparams...); err != nil {
+			return err
+		}
+		return p.Send(v)
 	})
 }
 

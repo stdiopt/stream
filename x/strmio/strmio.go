@@ -29,40 +29,36 @@ func Reader(r io.Reader) strm.Pipe {
 
 // WithReader expects a io.ReadCloser as input and sends the reader bytes.
 func WithReader() strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		return p.Consume(func(r io.ReadCloser) error {
-			defer r.Close()
-			buf := make([]byte, 4096)
-			for {
-				n, err := r.Read(buf)
-				if err == io.EOF {
-					if n > 0 {
-						return p.Send(buf[:n])
-					}
-					return nil
+	return strm.S(func(s strm.Sender, r io.ReadCloser) error {
+		defer r.Close()
+		buf := make([]byte, 4096)
+		for {
+			n, err := r.Read(buf)
+			if err == io.EOF {
+				if n > 0 {
+					return s.Send(buf[:n])
 				}
-				if err != nil {
-					return err
-				}
-				b := append([]byte{}, buf[:n]...)
-				if err := p.Send(b); err != nil {
-					return err
-				}
+				return nil
 			}
-		})
+			if err != nil {
+				return err
+			}
+			b := append([]byte{}, buf[:n]...)
+			if err := s.Send(b); err != nil {
+				return err
+			}
+		}
 	})
 }
 
 // Writer consumes []byte and writes to io.Writer
 func Writer(w io.Writer) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		return p.Consume(func(b []byte) error {
-			_, err := w.Write(b)
-			if err != nil {
-				return err
-			}
-			return p.Send(b)
-		})
+	return strm.S(func(s strm.Sender, b []byte) error {
+		_, err := w.Write(b)
+		if err != nil {
+			return err
+		}
+		return s.Send(b)
 	})
 }
 
