@@ -48,11 +48,11 @@ func Encode() strm.Pipe {
 		defer func() { closefn() }()
 
 		return p.Consume(func(v interface{}) error {
+			if v == nil {
+				return errors.New("cannot encode nil value")
+			}
 			if fw == nil {
 				w := strmio.AsWriter(p)
-				if v == nil {
-					return errors.New("cannot encode nil value")
-				}
 				// Setup parquet Writer
 				pw := goparquet.NewFileWriter(w,
 					goparquet.WithSchemaDefinition(schemaFrom(v)),

@@ -1,8 +1,11 @@
 package stream
 
 import (
+	"errors"
 	"fmt"
 )
+
+var ErrBreak = errors.New("break")
 
 type strmError struct {
 	pname string

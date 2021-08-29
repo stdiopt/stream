@@ -29,13 +29,13 @@ func TestLimit(t *testing.T) {
 			pipe:        Limit(2),
 			send:        []interface{}{1, 2, 3, 4},
 			want:        []interface{}{1, 2},
-			wantErrorRE: "strmutil.Limit.* EOF$",
+			wantErrorRE: "strmutil.Limit.* break$",
 		},
 		{
 			name:        "limits consumption to 0",
 			pipe:        Limit(0),
 			send:        []interface{}{1, 2, 3, 4},
-			wantErrorRE: "strmutil.Limit.* EOF$",
+			wantErrorRE: "strmutil.Limit.* break$",
 		},
 		{
 			name:        "returns error when sender errors",
