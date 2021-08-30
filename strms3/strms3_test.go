@@ -14,7 +14,6 @@ import (
 
 func TestUpload(t *testing.T) {
 	type args struct {
-		upl   s3uploader
 		s3url string
 	}
 	tests := []struct {

@@ -37,7 +37,7 @@ func Decode(v interface{}) strm.Pipe {
 				break
 			}
 			if err != nil {
-				rd.CloseWithError(err)
+				rd.CloseWithError(err) // nolint: errcheck
 				return err
 			}
 
@@ -48,7 +48,7 @@ func Decode(v interface{}) strm.Pipe {
 			}
 
 			if err := p.Send(v); err != nil {
-				rd.CloseWithError(err)
+				rd.CloseWithError(err) // nolint: errcheck
 				return err
 			}
 		}

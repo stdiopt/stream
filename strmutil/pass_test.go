@@ -10,12 +10,8 @@ import (
 )
 
 func TestPass(t *testing.T) {
-	type args struct {
-		pass strm.Sender
-	}
 	tests := []struct {
 		name        string
-		args        args
 		send        []interface{}
 		senderError error
 		passerError error

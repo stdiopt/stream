@@ -62,7 +62,7 @@ func Encode(comma rune, encodeOpts ...encodeOpt) strm.Pipe {
 					hdr = append(hdr, c.hdr)
 				}
 				if len(hdr) > 0 {
-					cw.Write(hdr)
+					cw.Write(hdr) // nolint: errcheck
 				}
 				headerSent = true
 			}
@@ -83,7 +83,7 @@ func Encode(comma rune, encodeOpts ...encodeOpt) strm.Pipe {
 				}
 				row[i] = fmt.Sprint(raw)
 			}
-			cw.Write(row)
+			cw.Write(row) // nolint: errcheck
 
 			return cw.Error()
 		})
@@ -112,7 +112,7 @@ func Decode(comma rune) strm.Pipe {
 				return nil
 			}
 			if err != nil {
-				rd.CloseWithError(err)
+				rd.CloseWithError(err) // nolint: errcheck
 				return err
 			}
 			if err := p.Send(row); err != nil {
@@ -146,7 +146,7 @@ func DecodeAsJSON(comma rune) strm.Pipe {
 				return nil
 			}
 			if err != nil {
-				rd.CloseWithError(err)
+				rd.CloseWithError(err) // nolint: errcheck
 				return err
 			}
 
@@ -155,7 +155,7 @@ func DecodeAsJSON(comma rune) strm.Pipe {
 				m[h] = row[i]
 			}
 			if err := enc.Encode(m); err != nil {
-				rd.CloseWithError(err)
+				rd.CloseWithError(err) // nolint: errcheck
 				return err
 			}
 		}

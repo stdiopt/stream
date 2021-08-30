@@ -127,10 +127,11 @@ func TestLine(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				defer consumer.close()
-				consumer.Send(tt.send)
+				consumer.Send(tt.send) // nolint: errcheck
 			}()
 			go func() {
 				defer wg.Done()
+				// nolint: errcheck
 				sender.Consume(func(v interface{}) error {
 					got = append(got, v)
 					return nil
@@ -342,11 +343,12 @@ func TestWorkers(t *testing.T) {
 				defer wg.Done()
 				defer consumer.close()
 				for _, v := range tt.sends {
-					consumer.Send(v)
+					consumer.Send(v) // nolint: errcheck
 				}
 			}()
 			go func() {
 				defer wg.Done()
+				// nolint: errcheck
 				sender.Consume(func(v interface{}) error {
 					if got == nil {
 						got = map[interface{}]int{}
@@ -416,10 +418,11 @@ func TestBuffer(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				defer consumer.close()
-				consumer.Send(tt.send)
+				consumer.Send(tt.send) // nolint: errcheck
 			}()
 			go func() {
 				defer wg.Done()
+				// nolint: errcheck
 				sender.Consume(func(v interface{}) error {
 					got = append(got, v)
 					return nil

@@ -300,8 +300,8 @@ func TestS(t *testing.T) {
 			name: "sends multiple",
 			args: args{
 				func(s Sender, v int) error {
-					s.Send(v)
-					s.Send(v)
+					s.Send(v) // nolint: errcheck
+					s.Send(v) // nolint: errcheck
 					return nil
 				},
 			},

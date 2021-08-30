@@ -362,7 +362,7 @@ func Test_pipeChan_Consume(t *testing.T) {
 			if tt.send != nil {
 				go func() {
 					defer closeSend(&c)
-					c.Send(tt.send)
+					c.Send(tt.send) // nolint: errcheck
 				}()
 			} else {
 				closeSend(&c)

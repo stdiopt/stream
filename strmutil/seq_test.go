@@ -12,7 +12,6 @@ func TestSeq(t *testing.T) {
 		value       interface{}
 		senderError error
 		want        []interface{}
-		wantErr     string
 	}
 	type args struct {
 		start int

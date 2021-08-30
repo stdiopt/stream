@@ -1,7 +1,6 @@
 package strmsql
 
 import (
-	"database/sql"
 	"errors"
 	"regexp"
 	"testing"
@@ -17,7 +16,6 @@ type sample struct {
 
 func TestDialect_InsertBatch(t *testing.T) {
 	type args struct {
-		db        *sql.DB
 		batchSize int
 		qry       string
 		params    []interface{}
@@ -215,7 +213,6 @@ func TestDialect_InsertBatch(t *testing.T) {
 
 func TestDialect_Exec(t *testing.T) {
 	type args struct {
-		db     *sql.DB
 		qry    string
 		params []interface{}
 	}

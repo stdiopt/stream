@@ -34,7 +34,7 @@ func Stream(pattern string) strm.Pipe {
 					continue
 				}
 				if err != nil {
-					r.CloseWithError(err)
+					r.CloseWithError(err) // nolint: errcheck
 					return err
 				}
 				if ok, err := filepath.Match(pattern, filepath.Base(hdr.Name)); !ok || err != nil {
@@ -42,7 +42,7 @@ func Stream(pattern string) strm.Pipe {
 				}
 				_, err = io.Copy(w, zs)
 				if err != nil {
-					r.CloseWithError(err)
+					r.CloseWithError(err) // nolint: errcheck
 					return err
 				}
 			}
@@ -51,7 +51,7 @@ func Stream(pattern string) strm.Pipe {
 		if err != nil {
 			return err
 		}
-		pw.CloseWithError(errDone)
+		pw.CloseWithError(errDone) // nolint: errcheck
 
 		err = eg.Wait()
 		if err == errDone {

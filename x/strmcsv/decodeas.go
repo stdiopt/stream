@@ -40,7 +40,7 @@ func DecodeAs(comma rune, v interface{}) strm.Pipe {
 				return nil
 			}
 			if err != nil {
-				rd.CloseWithError(err)
+				rd.CloseWithError(err) // nolint: errcheck
 				return err
 			}
 			val := reflect.New(typ)

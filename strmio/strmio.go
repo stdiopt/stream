@@ -36,6 +36,7 @@ func Writer(w io.Writer) strm.Pipe {
 func AsReader(p strm.Proc) *io.PipeReader {
 	pr, pw := io.Pipe()
 	go func() {
+		// nolint: errcheck
 		pw.CloseWithError(p.Consume(func(b []byte) error {
 			_, err := pw.Write(b)
 			return err

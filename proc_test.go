@@ -252,7 +252,6 @@ func Test_proc_Context(t *testing.T) {
 func Test_proc_cancel(t *testing.T) {
 	type fields struct {
 		id         snowflake.ID
-		ctx        context.Context
 		Consumerfn func(ctrl *gomock.Controller) Consumer
 		Senderfn   Sender
 	}

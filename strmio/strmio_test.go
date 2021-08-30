@@ -215,7 +215,9 @@ func TestAsReader(t *testing.T) {
 						return tt.consumerError
 					}
 					for _, s := range tt.send {
-						fn(s)
+						if err := fn(s); err != nil {
+							return err
+						}
 					}
 					return nil
 				},
