@@ -9,8 +9,8 @@ import (
 	"io"
 
 	strm "github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmio"
 	"github.com/stdiopt/stream/strmrefl"
-	"github.com/stdiopt/stream/x/strmio"
 )
 
 type column struct {

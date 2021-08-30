@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/x/strmio"
+	"github.com/stdiopt/stream/strmio"
 )
 
 // WriteFile create a file in path and writes to it.

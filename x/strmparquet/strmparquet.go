@@ -11,7 +11,7 @@ import (
 	"github.com/fraugster/parquet-go/parquet"
 	"github.com/fraugster/parquet-go/parquetschema"
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/x/strmio"
+	"github.com/stdiopt/stream/strmio"
 )
 
 // DecodeFile receives a string path and outputs T.

@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/x/strmio"
+	"github.com/stdiopt/stream/strmio"
 )
 
 func WithHeader(k, v string) RequestFunc {

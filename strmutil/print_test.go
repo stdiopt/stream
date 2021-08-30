@@ -19,37 +19,37 @@ func TestPrint(t *testing.T) {
 		send        []interface{}
 		senderError error
 
-		want        []interface{}
-		wantErr     string
-		matchOutput string
+		want       []interface{}
+		wantErr    string
+		wantOutput string
 	}{
 		{
-			name:        "prints",
-			args:        args{""},
-			send:        []interface{}{1},
-			want:        []interface{}{1},
-			matchOutput: "1\n",
+			name:       "prints",
+			args:       args{""},
+			send:       []interface{}{1},
+			want:       []interface{}{1},
+			wantOutput: "1\n",
 		},
 		{
-			name:        "prints with a prefix",
-			args:        args{"prefix"},
-			send:        []interface{}{1},
-			want:        []interface{}{1},
-			matchOutput: "[prefix] 1\n",
+			name:       "prints with a prefix",
+			args:       args{"prefix"},
+			send:       []interface{}{1},
+			want:       []interface{}{1},
+			wantOutput: "[prefix] 1\n",
 		},
 		{
-			name:        "prints []byte as string",
-			args:        args{"prefix"},
-			send:        []interface{}{[]byte{'a', 'b', 'c'}},
-			want:        []interface{}{[]byte{'a', 'b', 'c'}},
-			matchOutput: "[prefix] abc\n",
+			name:       "prints []byte as string",
+			args:       args{"prefix"},
+			send:       []interface{}{[]byte{'a', 'b', 'c'}},
+			want:       []interface{}{[]byte{'a', 'b', 'c'}},
+			wantOutput: "[prefix] abc\n",
 		},
 		{
-			name:        "multiple types",
-			args:        args{""},
-			send:        []interface{}{1, "two", 2.1},
-			want:        []interface{}{1, "two", 2.1},
-			matchOutput: "1\ntwo\n2.1\n",
+			name:       "multiple types",
+			args:       args{""},
+			send:       []interface{}{1, "two", 2.1},
+			want:       []interface{}{1, "two", 2.1},
+			wantOutput: "1\ntwo\n2.1\n",
 		},
 		{
 			name:        "returns error when sender errors",
@@ -57,7 +57,7 @@ func TestPrint(t *testing.T) {
 			send:        []interface{}{1, "two", 2.1},
 			senderError: errors.New("sender error"),
 			wantErr:     "strmutil.Print.* sender error$",
-			matchOutput: "1\n",
+			wantOutput:  "1\n",
 		},
 	}
 	for _, tt := range tests {
@@ -78,7 +78,7 @@ func TestPrint(t *testing.T) {
 				ExpectError(tt.wantErr).
 				Run()
 
-			if diff := cmp.Diff(buf.String(), tt.matchOutput); diff != "" {
+			if diff := cmp.Diff(buf.String(), tt.wantOutput); diff != "" {
 				t.Error(diff)
 			}
 		})
