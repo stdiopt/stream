@@ -263,7 +263,7 @@ func TestDecodeAsJSON(t *testing.T) {
 			send: []interface{}{
 				[]byte("\"hdr1, hdr2\nfield1,field2\n"),
 			},
-			wantErr: "strmcsv.Decode.* record on line 1",
+			wantErr: "strmcsv.DecodeAsJSON.* record on line 1",
 		},
 		{
 			name: "returns error on row error",
@@ -271,7 +271,7 @@ func TestDecodeAsJSON(t *testing.T) {
 			send: []interface{}{
 				[]byte("hdr1, hdr2\n\"field1,field2\n"),
 			},
-			wantErr: "strmcsv.Decode.* parse error on line 2",
+			wantErr: "strmcsv.DecodeAsJSON.* parse error on line 2",
 		},
 		{
 			name: "returns error on sender error",
@@ -280,7 +280,7 @@ func TestDecodeAsJSON(t *testing.T) {
 				[]byte("hdr1, hdr2\nfield1,field2\n"),
 			},
 			senderError: errors.New("sender error"),
-			wantErr:     "strmcsv.Decode.* sender error",
+			wantErr:     "strmcsv.DecodeAsJSON.* sender error",
 		},
 	}
 	for _, tt := range tests {
