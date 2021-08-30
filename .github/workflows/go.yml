@@ -11,17 +11,24 @@ jobs:
     name: go
     steps:
       - uses: actions/checkout@v2
+      
       - name: setup go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.17
+
       - name: go dependencies
-        shell: bash
         run: |
-          go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.38.0
           go mod download
-      - name: lint
-        run: golangci-lint run
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v2
 
       - name: test
-        run: go test -v ./...
+        run: go test -race -coverprofile=full.coverage ./...
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: code-coverage-report
+          path: full.coverage
