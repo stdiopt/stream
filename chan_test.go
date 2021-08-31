@@ -360,9 +360,10 @@ func Test_pipeChan_Consume(t *testing.T) {
 				closeSend = func(*pipeChan) { c.close() }
 			}
 			if tt.send != nil {
+				send := tt.send
 				go func() {
 					defer closeSend(&c)
-					c.Send(tt.send) // nolint: errcheck
+					c.Send(send) // nolint: errcheck
 				}()
 			} else {
 				closeSend(&c)

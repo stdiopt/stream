@@ -241,31 +241,38 @@ func TestTee(t *testing.T) {
 			}
 
 			var got map[interface{}]int
-			capture := Override{
-				CTX: ctx,
-				ConsumeFunc: func(fn ConsumerFunc) error {
-					for _, v := range tt.sends {
-						if err := fn(v); err != nil {
-							return err
-						}
-					}
-					return nil
-				},
-				SendFunc: func(v interface{}) error {
+
+			sender := newPipeChan(ctx, 0)
+			consumer := newPipeChan(ctx, 0)
+			wg := sync.WaitGroup{}
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				defer consumer.close()
+				for _, v := range tt.sends {
+					consumer.Send(v) // nolint: errcheck
+				}
+			}()
+			go func() {
+				defer wg.Done()
+				// nolint: errcheck
+				sender.Consume(func(v interface{}) error {
 					if got == nil {
 						got = map[interface{}]int{}
 					}
 					got[v]++
 					return nil
-				},
-			}
+				})
+			}()
 			pp := Tee(tt.args.pps...)
 			if pp == nil {
 				t.Errorf("Tee() is nil = %v, want %v", pp == nil, false)
 			}
-			if err := pp.Run(ctx, capture, capture); !matchError(tt.wantErr, err) {
+			if err := pp.Run(ctx, consumer, sender); !matchError(tt.wantErr, err) {
 				t.Errorf("Tee().Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			sender.close()
+			wg.Wait()
 
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Error("Tee() wrong output\n- want + got\n", diff)
