@@ -236,7 +236,7 @@ func TestAsReader(t *testing.T) {
 			rd := AsReader(o)
 			defer rd.Close()
 			if tt.closeError != nil {
-				rd.CloseWithError(tt.closeError)
+				rd.CloseWithError(tt.closeError) // nolint: errcheck
 			}
 			buf := bytes.Buffer{}
 			if _, err := io.Copy(&buf, rd); !strmtest.MatchError(tt.wantErr, err) {
