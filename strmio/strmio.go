@@ -33,20 +33,37 @@ func Writer(w io.Writer) strm.Pipe {
 	})
 }
 
-func AsReader(p strm.Proc) *io.PipeReader {
+func AsReader(p strm.Proc) ProcReader {
+	done := make(chan struct{})
 	pr, pw := io.Pipe()
 	go func() {
+		defer close(done)
 		// nolint: errcheck
 		pw.CloseWithError(p.Consume(func(b []byte) error {
 			_, err := pw.Write(b)
 			return err
 		}))
 	}()
-	return pr
+	return ProcReader{pr, done}
 }
 
 func AsWriter(s strm.Sender) ProcWriter {
 	return ProcWriter{s}
+}
+
+type ProcReader struct {
+	*io.PipeReader
+	done chan struct{}
+}
+
+func (r ProcReader) CloseWithError(err error) error {
+	defer func() { <-r.done }()
+	return r.PipeReader.CloseWithError(err)
+}
+
+func (r ProcReader) Close() error {
+	defer func() { <-r.done }()
+	return r.PipeReader.CloseWithError(nil)
 }
 
 type ProcWriter struct {

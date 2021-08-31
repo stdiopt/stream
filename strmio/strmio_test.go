@@ -191,9 +191,11 @@ func TestAsReader(t *testing.T) {
 
 		send          []interface{}
 		consumerError error
+		closeError    error
 
-		wantErr  string
-		wantRead string
+		wantErr         string
+		wantConsumerErr string
+		wantRead        string
 	}{
 		{
 			name:     "reads a proc",
@@ -206,9 +208,17 @@ func TestAsReader(t *testing.T) {
 			consumerError: errors.New("consumer error"),
 			wantErr:       "consumer error",
 		},
+		{
+			name:            "close with error",
+			send:            []interface{}{[]byte(`test 1`)},
+			closeError:      errors.New("closing error"),
+			wantErr:         "io: read/write on closed pipe",
+			wantConsumerErr: "closing error",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var consumerErr error
 			o := strm.Override{
 				ConsumeFunc: func(fn strm.ConsumerFunc) error {
 					if tt.consumerError != nil {
@@ -216,6 +226,7 @@ func TestAsReader(t *testing.T) {
 					}
 					for _, s := range tt.send {
 						if err := fn(s); err != nil {
+							consumerErr = err
 							return err
 						}
 					}
@@ -223,12 +234,16 @@ func TestAsReader(t *testing.T) {
 				},
 			}
 			rd := AsReader(o)
-			if rd == nil {
-				t.Errorf("AsReader() is nil = %v, want %v", rd == nil, false)
+			defer rd.Close()
+			if tt.closeError != nil {
+				rd.CloseWithError(tt.closeError)
 			}
 			buf := bytes.Buffer{}
 			if _, err := io.Copy(&buf, rd); !strmtest.MatchError(tt.wantErr, err) {
 				t.Errorf("AsReader() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !strmtest.MatchError(tt.wantConsumerErr, consumerErr) {
+				t.Errorf("AsReader() consumer error = %v, wantErr %v", consumerErr, tt.wantConsumerErr)
 			}
 			if diff := cmp.Diff(buf.String(), tt.wantRead); diff != "" {
 				t.Error("AsReader() wantOutput:\n", diff)

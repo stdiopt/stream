@@ -3,6 +3,7 @@ package strmtest
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -80,14 +81,17 @@ func (c *Capturer) Run() {
 		got  []interface{}
 	}
 
+	var mu sync.Mutex
 	var cur *result
 	var results []*result
 	var gotFull []interface{}
 	capturer := strm.Override{
 		ConsumeFunc: func(fn strm.ConsumerFunc) error {
 			for _, v := range c.sends {
+				mu.Lock()
 				cur = &result{send: v}
 				results = append(results, cur)
+				mu.Unlock()
 				if err := fn(v.value); err != nil {
 					return err
 				}
@@ -95,6 +99,8 @@ func (c *Capturer) Run() {
 			return nil
 		},
 		SendFunc: func(v interface{}) error {
+			mu.Lock()
+			defer mu.Unlock()
 			if cur.send.senderError != nil {
 				return cur.send.senderError
 			}
