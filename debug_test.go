@@ -18,7 +18,7 @@ func Test_procName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			re := regexp.MustCompile(tt.want)
-			if got := procName(); !re.MatchString(got) {
+			if got := procName(); !re.MatchString(got.String()) {
 				t.Errorf("procName() = %v, want %v", got, tt.want)
 			}
 		})

@@ -11,6 +11,62 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
+// MockLogger is a mock of Logger interface.
+type MockLogger struct {
+	ctrl     *gomock.Controller
+	recorder *MockLoggerMockRecorder
+}
+
+// MockLoggerMockRecorder is the mock recorder for MockLogger.
+type MockLoggerMockRecorder struct {
+	mock *MockLogger
+}
+
+// NewMockLogger creates a new mock instance.
+func NewMockLogger(ctrl *gomock.Controller) *MockLogger {
+	mock := &MockLogger{ctrl: ctrl}
+	mock.recorder = &MockLoggerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
+	return m.recorder
+}
+
+// Printf mocks base method.
+func (m *MockLogger) Printf(arg0 string, arg1 ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Printf", varargs...)
+}
+
+// Printf indicates an expected call of Printf.
+func (mr *MockLoggerMockRecorder) Printf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Printf", reflect.TypeOf((*MockLogger)(nil).Printf), varargs...)
+}
+
+// Println mocks base method.
+func (m *MockLogger) Println(arg0 ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Println", varargs...)
+}
+
+// Println indicates an expected call of Println.
+func (mr *MockLoggerMockRecorder) Println(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Println", reflect.TypeOf((*MockLogger)(nil).Println), arg0...)
+}
+
 // MockConsumer is a mock of Consumer interface.
 type MockConsumer struct {
 	ctrl     *gomock.Controller
@@ -97,6 +153,39 @@ func (mr *MockSenderMockRecorder) Context() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockSender)(nil).Context))
 }
 
+// Printf mocks base method.
+func (m *MockSender) Printf(arg0 string, arg1 ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Printf", varargs...)
+}
+
+// Printf indicates an expected call of Printf.
+func (mr *MockSenderMockRecorder) Printf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Printf", reflect.TypeOf((*MockSender)(nil).Printf), varargs...)
+}
+
+// Println mocks base method.
+func (m *MockSender) Println(arg0 ...interface{}) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Println", varargs...)
+}
+
+// Println indicates an expected call of Println.
+func (mr *MockSenderMockRecorder) Println(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Println", reflect.TypeOf((*MockSender)(nil).Println), arg0...)
+}
+
 // Send mocks base method.
 func (m *MockSender) Send(arg0 interface{}) error {
 	m.ctrl.T.Helper()
@@ -121,62 +210,6 @@ func (m *MockSender) close() {
 func (mr *MockSenderMockRecorder) close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "close", reflect.TypeOf((*MockSender)(nil).close))
-}
-
-// MockLogger is a mock of Logger interface.
-type MockLogger struct {
-	ctrl     *gomock.Controller
-	recorder *MockLoggerMockRecorder
-}
-
-// MockLoggerMockRecorder is the mock recorder for MockLogger.
-type MockLoggerMockRecorder struct {
-	mock *MockLogger
-}
-
-// NewMockLogger creates a new mock instance.
-func NewMockLogger(ctrl *gomock.Controller) *MockLogger {
-	mock := &MockLogger{ctrl: ctrl}
-	mock.recorder = &MockLoggerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
-	return m.recorder
-}
-
-// Printf mocks base method.
-func (m *MockLogger) Printf(arg0 string, arg1 ...interface{}) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Printf", varargs...)
-}
-
-// Printf indicates an expected call of Printf.
-func (mr *MockLoggerMockRecorder) Printf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Printf", reflect.TypeOf((*MockLogger)(nil).Printf), varargs...)
-}
-
-// Println mocks base method.
-func (m *MockLogger) Println(arg0 ...interface{}) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Println", varargs...)
-}
-
-// Println indicates an expected call of Println.
-func (mr *MockLoggerMockRecorder) Println(arg0 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Println", reflect.TypeOf((*MockLogger)(nil).Println), arg0...)
 }
 
 // MockProc is a mock of Proc interface.

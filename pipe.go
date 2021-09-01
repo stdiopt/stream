@@ -2,6 +2,8 @@ package stream
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"reflect"
 )
 
@@ -14,7 +16,8 @@ type Pipe interface {
 
 // pipe constructor returned by Func.
 type pipe struct {
-	fn func(Proc) error
+	caller callerInfo
+	fn     func(Proc) error
 }
 
 // newChan creates a new channel.
@@ -24,21 +27,36 @@ func (p pipe) newChan(ctx context.Context, buffer int) Chan {
 
 // run makes a proc and calls the pipe proc func
 func (p pipe) Run(ctx context.Context, in Consumer, out Sender) error {
-	return p.fn(proc{ctx: ctx, Consumer: in, Sender: out})
+	prc := proc{
+		caller:   p.caller,
+		ctx:      ctx,
+		Consumer: in,
+		Sender:   out, // this could be created here and a sender returned?!
+		log:      log.New(log.Writer(), fmt.Sprintf("[%s] ", p.caller.name), log.Flags()),
+	}
+	return p.fn(prc)
 }
 
 // Func calls accepts a func with a Proc interface which provides Consume and
 // Send methods.
 func Func(fn func(Proc) error) Pipe {
-	pname := procName()
-	return pipe{wrapProcFunc(pname, fn)}
+	// Build proc here?
+	caller := procName()
+	return pipe{
+		caller,
+		wrapProcFunc(caller.String(), fn),
+	}
 }
 
 // S function that accepts a signature in the form of
 // func(Sender, T) error and it's called when a value is received
 // Sender can be called multiple times
 func S(fn interface{}) Pipe {
-	return pipe{wrapProcFunc(procName(), makeSProcFunc(fn))}
+	caller := procName()
+	return pipe{
+		caller,
+		wrapProcFunc(caller.String(), makeSProcFunc(fn)),
+	}
 }
 
 var senderTyp = reflect.TypeOf((*Sender)(nil)).Elem()

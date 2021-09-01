@@ -12,7 +12,7 @@ import (
 // route pipeline goes away.
 func Route(fn interface{}, sub func(k string) Pipe) Pipe {
 	routefn := makeRouteFunc(fn)
-	return pipe{func(p Proc) (err error) {
+	return pipe{fn: func(p Proc) (err error) {
 		eg, ctx := errgroup.WithContext(p.Context())
 		senders := map[string]*pipeChan{}
 

@@ -47,7 +47,7 @@ func Test_newProc(t *testing.T) {
 
 func Test_proc_Consume(t *testing.T) {
 	type fields struct {
-		id         snowflake.ID
+		caller     callerInfo
 		ctx        context.Context
 		Consumerfn func(ctrl *gomock.Controller) Consumer
 		Sender     Sender
@@ -123,7 +123,7 @@ func Test_proc_Consume(t *testing.T) {
 				consumer = tt.fields.Consumerfn(ctrl)
 			}
 			p := proc{
-				id:       tt.fields.id,
+				caller:   tt.fields.caller,
 				ctx:      tt.fields.ctx,
 				Consumer: consumer,
 				Sender:   tt.fields.Sender,
@@ -201,7 +201,6 @@ func Test_proc_Send(t *testing.T) {
 				sender = tt.fields.Senderfn(ctrl)
 			}
 			p := proc{
-				id:       tt.fields.id,
 				ctx:      tt.fields.ctx,
 				Consumer: tt.fields.Consumer,
 				Sender:   sender,
@@ -237,7 +236,6 @@ func Test_proc_Context(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := proc{
-				id:       tt.fields.id,
 				ctx:      tt.fields.ctx,
 				Consumer: tt.fields.Consumer,
 				Sender:   tt.fields.Sender,
@@ -284,7 +282,6 @@ func Test_proc_cancel(t *testing.T) {
 				consumer = tt.fields.Consumerfn(ctrl)
 			}
 			p := proc{
-				id:       tt.fields.id,
 				Consumer: consumer,
 			}
 			p.cancel()

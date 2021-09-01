@@ -7,15 +7,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Consumer interface {
+type Chan interface {
+	Sender
 	Consume(interface{}) error
-	cancel() // do we need cancel
-}
-
-type Sender interface {
-	Context() context.Context
-	Send(interface{}) error
-	close()
+	cancel()
 }
 
 type Logger interface {
@@ -23,12 +18,23 @@ type Logger interface {
 	Printf(string, ...interface{})
 }
 
+type Consumer interface {
+	Consume(interface{}) error
+	cancel() // do we need cancel
+}
+
+type Sender interface {
+	Logger
+	Context() context.Context
+	Send(interface{}) error
+	close()
+}
+
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
 // func.
 type Proc interface {
 	Sender
 	Consumer
-	Logger
 }
 
 type procFunc = func(Proc) error
@@ -43,7 +49,7 @@ func Line(pps ...Pipe) Pipe {
 	if len(pps) == 1 {
 		return pps[0]
 	}
-	return pipe{func(p Proc) error {
+	return pipe{fn: func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		last := Consumer(p) // consumer should be nil
 		for _, pp := range pps[:len(pps)-1] {
@@ -71,14 +77,14 @@ func Line(pps ...Pipe) Pipe {
 // Tee consumes and passes the consumed message to all pfs ProcFuncs.
 func Tee(pps ...Pipe) Pipe {
 	if len(pps) == 0 {
-		return pipe{func(p Proc) error {
+		return pipe{fn: func(p Proc) error {
 			return p.Consume(p.Send)
 		}}
 	}
 	if len(pps) == 1 {
 		return pps[0]
 	}
-	return pipe{func(p Proc) error {
+	return pipe{fn: func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		// iproc
 		chs := make([]Chan, len(pps))
@@ -115,7 +121,7 @@ func Workers(n int, pps ...Pipe) Pipe {
 	if n <= 0 {
 		n = 1
 	}
-	return pipe{func(p Proc) error {
+	return pipe{fn: func(p Proc) error {
 		// Wrap in a channel here? for output?
 		// since sender might be something else
 		eg, ctx := errgroup.WithContext(p.Context())
@@ -131,7 +137,7 @@ func Workers(n int, pps ...Pipe) Pipe {
 // Buffer will create an extra buffered channel.
 func Buffer(n int, pps ...Pipe) Pipe {
 	pp := Line(pps...)
-	return pipe{func(p Proc) error {
+	return pipe{fn: func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
 		ch := pp.newChan(ctx, n)
 		eg.Go(func() error {

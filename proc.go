@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-
-	"github.com/bwmarrin/snowflake"
 )
 
 var errTyp = reflect.TypeOf((*error)(nil)).Elem()
 
 // proc implements the Proc interface
 type proc struct {
-	id  snowflake.ID
-	ctx context.Context
+	caller callerInfo
+	ctx    context.Context
+	log    *log.Logger
 	Consumer
 	Sender
 }
@@ -56,11 +55,17 @@ func (p proc) cancel() {
 }
 
 func (p proc) Println(args ...interface{}) {
-	log.Println(args...)
+	if p.log == nil {
+		return
+	}
+	p.log.Println(args...)
 }
 
 func (p proc) Printf(format string, args ...interface{}) {
-	log.Printf(format, args...)
+	if p.log == nil {
+		return
+	}
+	p.log.Printf(format, args...)
 }
 
 // MakeConsumerFunc returns a consumerFunc

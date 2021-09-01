@@ -4,17 +4,11 @@ import (
 	"context"
 )
 
-type Chan interface {
-	Context() context.Context
-	Consume(interface{}) error
-	Send(interface{}) error
-	cancel()
-	close()
-}
 type ConsumerFunc = func(interface{}) error
 
 // pipeChan wraps a channel and a context for cancellation awareness.
 type pipeChan struct {
+	// Maybe use a proc here?!
 	ctx  context.Context
 	ch   chan interface{}
 	done chan struct{}
@@ -82,6 +76,10 @@ func (c pipeChan) Consume(ifn interface{}) error {
 		}
 	}
 }
+
+func (c pipeChan) Println(...interface{}) {}
+
+func (c pipeChan) Printf(string, ...interface{}) {}
 
 func (c pipeChan) cancel() {
 	select {
