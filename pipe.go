@@ -57,38 +57,37 @@ func makeSProcFunc(fn interface{}) procFunc {
 				return fn(p, v)
 			})
 		}
-	default:
-		return func(p Proc) error {
-			fnVal := reflect.ValueOf(fn)
-			fnTyp := fnVal.Type()
+	}
+	return func(p Proc) error {
+		fnVal := reflect.ValueOf(fn)
+		fnTyp := fnVal.Type()
 
-			if fnTyp.NumIn() != 2 {
-				panic("func should have 2 params")
-			}
-			if fnTyp.In(0) != senderTyp {
-				panic("first param should be 'strm.Sender'")
-			}
-			if fnTyp.NumOut() != 1 || fnTyp.Out(0) != errTyp {
-				panic("func should have 1 output and must be 'error'")
-			}
-			args := make([]reflect.Value, 2)
-			args[0] = reflect.ValueOf(Sender(p))
-			return p.Consume(func(v interface{}) error {
-				if v == nil {
-					args[1] = reflect.New(fnTyp.In(1)).Elem()
-				} else {
-					args[1] = reflect.ValueOf(v)
-				}
-				if args[1].Type() != fnTyp.In(1) {
-					return TypeMismatchError{fnTyp.In(1).String(), args[1].Type().String()}
-				}
-
-				ret := fnVal.Call(args)
-				if err, ok := ret[0].Interface().(error); ok && err != nil {
-					return err
-				}
-				return nil
-			})
+		if fnTyp.NumIn() != 2 {
+			panic("func should have 2 params")
 		}
+		if fnTyp.In(0) != senderTyp {
+			panic("first param should be 'strm.Sender'")
+		}
+		if fnTyp.NumOut() != 1 || fnTyp.Out(0) != errTyp {
+			panic("func should have 1 output and must be 'error'")
+		}
+		args := make([]reflect.Value, 2)
+		args[0] = reflect.ValueOf(Sender(p))
+		return p.Consume(func(v interface{}) error {
+			if v == nil {
+				args[1] = reflect.New(fnTyp.In(1)).Elem()
+			} else {
+				args[1] = reflect.ValueOf(v)
+			}
+			if args[1].Type() != fnTyp.In(1) {
+				return TypeMismatchError{fnTyp.In(1).String(), args[1].Type().String()}
+			}
+
+			ret := fnVal.Call(args)
+			if err, ok := ret[0].Interface().(error); ok && err != nil {
+				return err
+			}
+			return nil
+		})
 	}
 }
