@@ -19,8 +19,8 @@ import (
 func Stream(pattern string) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		errDone := errors.New("done")
-		r := strmio.AsReader(p)
-		defer r.Close()
+		rd := strmio.AsReader(p)
+		defer rd.Close()
 		w := strmio.AsWriter(p)
 
 		pr, pw := io.Pipe()
@@ -34,7 +34,7 @@ func Stream(pattern string) strm.Pipe {
 					continue
 				}
 				if err != nil {
-					r.CloseWithError(err) // nolint: errcheck
+					rd.CloseWithError(err) // nolint: errcheck
 					return err
 				}
 				if ok, err := filepath.Match(pattern, filepath.Base(hdr.Name)); !ok || err != nil {
@@ -42,12 +42,12 @@ func Stream(pattern string) strm.Pipe {
 				}
 				_, err = io.Copy(w, zs)
 				if err != nil {
-					r.CloseWithError(err) // nolint: errcheck
+					rd.CloseWithError(err) // nolint: errcheck
 					return err
 				}
 			}
 		})
-		_, err := io.Copy(pw, r)
+		_, err := io.Copy(pw, rd)
 		if err != nil {
 			return err
 		}
@@ -65,7 +65,8 @@ func Stream(pattern string) strm.Pipe {
 // after EOF.
 func EachArchive(pattern string, pps ...strm.Pipe) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
-		r := strmio.AsReader(p)
+		rd := strmio.AsReader(p)
+		defer rd.Close()
 
 		tmp, err := os.CreateTemp(os.TempDir(), "strmzip-*")
 		if err != nil {
@@ -76,7 +77,7 @@ func EachArchive(pattern string, pps ...strm.Pipe) strm.Pipe {
 		// Copy to temporary file
 		_, err = func() (int64, error) {
 			defer tmp.Close()
-			return io.Copy(tmp, r)
+			return io.Copy(tmp, rd)
 		}()
 		if err != nil {
 			return err

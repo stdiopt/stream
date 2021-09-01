@@ -1,4 +1,4 @@
-package strmio
+package strmtext
 
 import (
 	strm "github.com/stdiopt/stream"
