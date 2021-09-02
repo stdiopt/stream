@@ -13,7 +13,7 @@ import (
 func WriteFile(path string) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		closefn := func() {}
-		defer closefn()
+		defer func() { closefn() }()
 
 		var f *os.File
 		return p.Consume(func(buf []byte) error {
@@ -33,10 +33,8 @@ func WriteFile(path string) strm.Pipe {
 				f = nf
 			}
 
-			if _, err := f.Write(buf); err != nil {
-				return err
-			}
-			return p.Send(buf)
+			_, err := f.Write(buf)
+			return err
 		})
 	})
 }
