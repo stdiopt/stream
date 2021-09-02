@@ -104,7 +104,7 @@ func Test_pipe_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 				infn: func(ctrl *gomock.Controller) consumer {
-					p := NewMockConsumer(ctrl)
+					p := NewMockconsumer(ctrl)
 					p.EXPECT().Consume(
 						gomock.AssignableToTypeOf((func(interface{}) error)(nil)),
 					).Return(nil)
@@ -112,7 +112,7 @@ func Test_pipe_Run(t *testing.T) {
 					return p
 				},
 				outfn: func(ctrl *gomock.Controller) sender {
-					p := NewMockSender(ctrl)
+					p := NewMocksender(ctrl)
 					return p
 				},
 			},
@@ -127,11 +127,11 @@ func Test_pipe_Run(t *testing.T) {
 			args: args{
 				ctx: context.TODO(),
 				infn: func(ctrl *gomock.Controller) consumer {
-					p := NewMockConsumer(ctrl)
+					p := NewMockconsumer(ctrl)
 					return p
 				},
 				outfn: func(ctrl *gomock.Controller) sender {
-					p := NewMockSender(ctrl)
+					p := NewMocksender(ctrl)
 					return p
 				},
 			},

@@ -65,7 +65,7 @@ func Test_proc_Consume(t *testing.T) {
 			name: "calls underlying consumer",
 			fields: fields{
 				consumerfn: func(ctrl *gomock.Controller) consumer {
-					p := NewMockConsumer(ctrl)
+					p := NewMockconsumer(ctrl)
 					p.EXPECT().
 						Consume(
 							gomock.AssignableToTypeOf((func(interface{}) error)(nil)),
@@ -84,7 +84,7 @@ func Test_proc_Consume(t *testing.T) {
 			name: "returns underlying consumer error",
 			fields: fields{
 				consumerfn: func(ctrl *gomock.Controller) consumer {
-					p := NewMockConsumer(ctrl)
+					p := NewMockconsumer(ctrl)
 					p.EXPECT().
 						Consume(
 							gomock.AssignableToTypeOf((func(interface{}) error)(nil)),
@@ -165,7 +165,7 @@ func Test_proc_Send(t *testing.T) {
 			name: "calls underlying sender",
 			fields: fields{
 				senderfn: func(ctrl *gomock.Controller) sender {
-					p := NewMockSender(ctrl)
+					p := NewMocksender(ctrl)
 					p.EXPECT().Send(1)
 					return p
 				},
@@ -176,7 +176,7 @@ func Test_proc_Send(t *testing.T) {
 			name: "returns error when underlying sender errors",
 			fields: fields{
 				senderfn: func(ctrl *gomock.Controller) sender {
-					p := NewMockSender(ctrl)
+					p := NewMocksender(ctrl)
 					p.EXPECT().Send(1).Return(errors.New("sender error"))
 					return p
 				},
@@ -257,7 +257,7 @@ func Test_proc_cancel(t *testing.T) {
 			name: "cancel inner consumer",
 			fields: fields{
 				consumerfn: func(ctrl *gomock.Controller) consumer {
-					p := NewMockConsumer(ctrl)
+					p := NewMockconsumer(ctrl)
 					p.EXPECT().cancel()
 					return p
 				},
