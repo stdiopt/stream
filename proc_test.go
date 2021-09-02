@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bwmarrin/snowflake"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 )
@@ -149,7 +148,6 @@ func Test_proc_Consume(t *testing.T) {
 
 func Test_proc_Send(t *testing.T) {
 	type fields struct {
-		id       snowflake.ID
 		ctx      context.Context
 		consumer consumer
 		senderfn func(ctrl *gomock.Controller) sender
@@ -214,7 +212,6 @@ func Test_proc_Send(t *testing.T) {
 
 func Test_proc_Context(t *testing.T) {
 	type fields struct {
-		id       snowflake.ID
 		ctx      context.Context
 		consumer consumer
 		sender   sender
