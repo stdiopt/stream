@@ -40,12 +40,12 @@ type fakeContext struct {
 
 type fakeConsumer struct {
 	s string
-	Consumer
+	consumer
 }
 
 type fakeSender struct {
 	s string
-	Sender
+	sender
 }
 
 type contextHelper struct {

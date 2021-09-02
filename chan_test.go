@@ -64,37 +64,6 @@ func Test_newPipeChan(t *testing.T) {
 	}
 }
 
-func Test_pipeChan_Context(t *testing.T) {
-	type fields struct {
-		ctx  context.Context
-		ch   chan interface{}
-		done chan struct{}
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   context.Context
-	}{
-		{
-			name:   "return current context",
-			fields: fields{ctx: context.TODO()},
-			want:   context.TODO(),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := pipeChan{
-				ctx:  tt.fields.ctx,
-				ch:   tt.fields.ch,
-				done: tt.fields.done,
-			}
-			if got := c.Context(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("PipeChan.Context() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_pipeChan_Send(t *testing.T) {
 	type fields struct {
 		ctx  context.Context

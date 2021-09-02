@@ -7,10 +7,26 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Chan interface {
-	Sender
+// public sender
+type Sender interface {
+	Logger
+	Send(interface{}) error
+	Context() context.Context
+}
+
+type sender interface {
+	Send(interface{}) error
+	close()
+}
+
+type consumer interface {
 	Consume(interface{}) error
 	cancel()
+}
+
+type Chan interface {
+	consumer
+	sender
 }
 
 type Logger interface {
@@ -18,23 +34,13 @@ type Logger interface {
 	Printf(string, ...interface{})
 }
 
-type Consumer interface {
-	Consume(interface{}) error
-	cancel() // do we need cancel
-}
-
-type Sender interface {
-	Logger
-	Context() context.Context
-	Send(interface{}) error
-	close()
-}
-
 // Proc is the interface used by ProcFuncs to Consume and send data to the next
 // func.
 type Proc interface {
-	Sender
-	Consumer
+	Context() context.Context
+	Logger
+	sender
+	consumer
 }
 
 type procFunc = func(Proc) error
@@ -51,7 +57,7 @@ func Line(pps ...Pipe) Pipe {
 	}
 	return pipe{fn: func(p Proc) error {
 		eg, ctx := errgroup.WithContext(p.Context())
-		last := Consumer(p) // consumer should be nil
+		last := consumer(p) // consumer should be nil
 		for _, pp := range pps[:len(pps)-1] {
 			ch := pp.newChan(ctx, 0)
 

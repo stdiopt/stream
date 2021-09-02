@@ -23,10 +23,6 @@ func newPipeChan(ctx context.Context, buffer int) *pipeChan {
 	}
 }
 
-func (c pipeChan) Context() context.Context {
-	return c.ctx
-}
-
 // Send sends v to the underlying channel if context is cancelled it will return
 // the underlying ctx.Err()
 func (c pipeChan) Send(v interface{}) error {
@@ -76,10 +72,6 @@ func (c pipeChan) Consume(ifn interface{}) error {
 		}
 	}
 }
-
-func (c pipeChan) Println(...interface{}) {}
-
-func (c pipeChan) Printf(string, ...interface{}) {}
 
 func (c pipeChan) cancel() {
 	select {

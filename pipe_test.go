@@ -85,8 +85,8 @@ func Test_pipe_Run(t *testing.T) {
 	}
 	type args struct {
 		ctx   context.Context
-		infn  func(ctrl *gomock.Controller) Consumer
-		outfn func(ctrl *gomock.Controller) Sender
+		infn  func(ctrl *gomock.Controller) consumer
+		outfn func(ctrl *gomock.Controller) sender
 	}
 	tests := []struct {
 		name    string
@@ -103,7 +103,7 @@ func Test_pipe_Run(t *testing.T) {
 			},
 			args: args{
 				ctx: context.TODO(),
-				infn: func(ctrl *gomock.Controller) Consumer {
+				infn: func(ctrl *gomock.Controller) consumer {
 					p := NewMockConsumer(ctrl)
 					p.EXPECT().Consume(
 						gomock.AssignableToTypeOf((func(interface{}) error)(nil)),
@@ -111,7 +111,7 @@ func Test_pipe_Run(t *testing.T) {
 
 					return p
 				},
-				outfn: func(ctrl *gomock.Controller) Sender {
+				outfn: func(ctrl *gomock.Controller) sender {
 					p := NewMockSender(ctrl)
 					return p
 				},
@@ -126,11 +126,11 @@ func Test_pipe_Run(t *testing.T) {
 			},
 			args: args{
 				ctx: context.TODO(),
-				infn: func(ctrl *gomock.Controller) Consumer {
+				infn: func(ctrl *gomock.Controller) consumer {
 					p := NewMockConsumer(ctrl)
 					return p
 				},
-				outfn: func(ctrl *gomock.Controller) Sender {
+				outfn: func(ctrl *gomock.Controller) sender {
 					p := NewMockSender(ctrl)
 					return p
 				},
@@ -143,8 +143,8 @@ func Test_pipe_Run(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			var c Consumer
-			var s Sender
+			var c consumer
+			var s sender
 			if tt.args.infn != nil {
 				c = tt.args.infn(ctrl)
 			}

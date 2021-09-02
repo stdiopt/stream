@@ -2,7 +2,6 @@ package stream
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"runtime"
 )
@@ -28,7 +27,6 @@ func procName() callerInfo {
 
 	// Where it was called
 	_, f, l, _ := runtime.Caller(3)
-	log.Println("File is:", f, runtime.GOROOT())
 	_, file := filepath.Split(f)
 
 	return callerInfo{

@@ -14,8 +14,8 @@ import (
 func Test_newProc(t *testing.T) {
 	type args struct {
 		ctx context.Context
-		c   Consumer
-		s   Sender
+		c   consumer
+		s   sender
 	}
 	tests := []struct {
 		name string
@@ -31,8 +31,8 @@ func Test_newProc(t *testing.T) {
 			},
 			want: &proc{
 				ctx:      context.TODO(),
-				Consumer: fakeConsumer{"ca", nil},
-				Sender:   fakeSender{"sa", nil},
+				consumer: fakeConsumer{"ca", nil},
+				sender:   fakeSender{"sa", nil},
 			},
 		},
 	}
@@ -49,8 +49,8 @@ func Test_proc_Consume(t *testing.T) {
 	type fields struct {
 		caller     callerInfo
 		ctx        context.Context
-		Consumerfn func(ctrl *gomock.Controller) Consumer
-		Sender     Sender
+		consumerfn func(ctrl *gomock.Controller) consumer
+		sender     sender
 	}
 	type args struct {
 		fn interface{}
@@ -65,7 +65,7 @@ func Test_proc_Consume(t *testing.T) {
 		{
 			name: "calls underlying consumer",
 			fields: fields{
-				Consumerfn: func(ctrl *gomock.Controller) Consumer {
+				consumerfn: func(ctrl *gomock.Controller) consumer {
 					p := NewMockConsumer(ctrl)
 					p.EXPECT().
 						Consume(
@@ -84,7 +84,7 @@ func Test_proc_Consume(t *testing.T) {
 		{
 			name: "returns underlying consumer error",
 			fields: fields{
-				Consumerfn: func(ctrl *gomock.Controller) Consumer {
+				consumerfn: func(ctrl *gomock.Controller) consumer {
 					p := NewMockConsumer(ctrl)
 					p.EXPECT().
 						Consume(
@@ -118,15 +118,15 @@ func Test_proc_Consume(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			var consumer Consumer
-			if tt.fields.Consumerfn != nil {
-				consumer = tt.fields.Consumerfn(ctrl)
+			var consumer consumer
+			if tt.fields.consumerfn != nil {
+				consumer = tt.fields.consumerfn(ctrl)
 			}
 			p := proc{
 				caller:   tt.fields.caller,
 				ctx:      tt.fields.ctx,
-				Consumer: consumer,
-				Sender:   tt.fields.Sender,
+				consumer: consumer,
+				sender:   tt.fields.sender,
 			}
 
 			var got interface{}
@@ -151,8 +151,8 @@ func Test_proc_Send(t *testing.T) {
 	type fields struct {
 		id       snowflake.ID
 		ctx      context.Context
-		Consumer Consumer
-		Senderfn func(ctrl *gomock.Controller) Sender
+		consumer consumer
+		senderfn func(ctrl *gomock.Controller) sender
 	}
 	type args struct {
 		v interface{}
@@ -166,7 +166,7 @@ func Test_proc_Send(t *testing.T) {
 		{
 			name: "calls underlying sender",
 			fields: fields{
-				Senderfn: func(ctrl *gomock.Controller) Sender {
+				senderfn: func(ctrl *gomock.Controller) sender {
 					p := NewMockSender(ctrl)
 					p.EXPECT().Send(1)
 					return p
@@ -177,7 +177,7 @@ func Test_proc_Send(t *testing.T) {
 		{
 			name: "returns error when underlying sender errors",
 			fields: fields{
-				Senderfn: func(ctrl *gomock.Controller) Sender {
+				senderfn: func(ctrl *gomock.Controller) sender {
 					p := NewMockSender(ctrl)
 					p.EXPECT().Send(1).Return(errors.New("sender error"))
 					return p
@@ -196,14 +196,14 @@ func Test_proc_Send(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			var sender Sender
-			if tt.fields.Senderfn != nil {
-				sender = tt.fields.Senderfn(ctrl)
+			var sender sender
+			if tt.fields.senderfn != nil {
+				sender = tt.fields.senderfn(ctrl)
 			}
 			p := proc{
 				ctx:      tt.fields.ctx,
-				Consumer: tt.fields.Consumer,
-				Sender:   sender,
+				consumer: tt.fields.consumer,
+				sender:   sender,
 			}
 			if err := p.Send(tt.args.v); !matchError(tt.wantErr, err) {
 				t.Errorf("proc.Send() error = %v, wantErr %v", err, tt.wantErr)
@@ -216,8 +216,8 @@ func Test_proc_Context(t *testing.T) {
 	type fields struct {
 		id       snowflake.ID
 		ctx      context.Context
-		Consumer Consumer
-		Sender   Sender
+		consumer consumer
+		sender   sender
 	}
 	tests := []struct {
 		name   string
@@ -237,8 +237,8 @@ func Test_proc_Context(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := proc{
 				ctx:      tt.fields.ctx,
-				Consumer: tt.fields.Consumer,
-				Sender:   tt.fields.Sender,
+				consumer: tt.fields.consumer,
+				sender:   tt.fields.sender,
 			}
 			if got := p.Context(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("proc.Context() = %v, want %v", got, tt.want)
@@ -249,8 +249,7 @@ func Test_proc_Context(t *testing.T) {
 
 func Test_proc_cancel(t *testing.T) {
 	type fields struct {
-		id         snowflake.ID
-		Consumerfn func(ctrl *gomock.Controller) Consumer
+		consumerfn func(ctrl *gomock.Controller) consumer
 		Senderfn   Sender
 	}
 	tests := []struct {
@@ -260,7 +259,7 @@ func Test_proc_cancel(t *testing.T) {
 		{
 			name: "cancel inner consumer",
 			fields: fields{
-				Consumerfn: func(ctrl *gomock.Controller) Consumer {
+				consumerfn: func(ctrl *gomock.Controller) consumer {
 					p := NewMockConsumer(ctrl)
 					p.EXPECT().cancel()
 					return p
@@ -276,13 +275,13 @@ func Test_proc_cancel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			var consumer Consumer
+			var consumer consumer
 
-			if tt.fields.Consumerfn != nil {
-				consumer = tt.fields.Consumerfn(ctrl)
+			if tt.fields.consumerfn != nil {
+				consumer = tt.fields.consumerfn(ctrl)
 			}
 			p := proc{
-				Consumer: consumer,
+				consumer: consumer,
 			}
 			p.cancel()
 		})

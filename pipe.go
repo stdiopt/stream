@@ -10,7 +10,7 @@ import (
 // Pipe interface for internal use along the pipe line constructor.
 // Functions like Func, T, S, will return a Pipe.
 type Pipe interface {
-	Run(context.Context, Consumer, Sender) error
+	Run(context.Context, consumer, sender) error
 	newChan(context.Context, int) Chan
 }
 
@@ -26,12 +26,12 @@ func (p pipe) newChan(ctx context.Context, buffer int) Chan {
 }
 
 // run makes a proc and calls the pipe proc func
-func (p pipe) Run(ctx context.Context, in Consumer, out Sender) error {
+func (p pipe) Run(ctx context.Context, in consumer, out sender) error {
 	prc := proc{
 		caller:   p.caller,
 		ctx:      ctx,
-		Consumer: in,
-		Sender:   out, // this could be created here and a sender returned?!
+		consumer: in,
+		sender:   out, // this could be created here and a sender returned?!
 		log:      log.New(log.Writer(), fmt.Sprintf("[%s] ", p.caller.name), log.Flags()),
 	}
 	return p.fn(prc)

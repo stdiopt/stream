@@ -14,33 +14,33 @@ type proc struct {
 	caller callerInfo
 	ctx    context.Context
 	log    *log.Logger
-	Consumer
-	Sender
+	consumer
+	sender
 }
 
 // newProc makes a Proc based on a Consumer and Sender.
-func newProc(ctx context.Context, c Consumer, s Sender) *proc {
+func newProc(ctx context.Context, c consumer, s sender) *proc {
 	return &proc{
 		ctx:      ctx,
-		Consumer: c,
-		Sender:   s,
+		consumer: c,
+		sender:   s,
 	}
 }
 
 // this can be overriden we should put here?
 func (p proc) Consume(fn interface{}) error {
-	if p.Consumer == nil {
+	if p.consumer == nil {
 		return MakeConsumerFunc(fn)(nil)
 	}
-	return p.Consumer.Consume(fn)
+	return p.consumer.Consume(fn)
 }
 
 func (p proc) Send(v interface{}) error {
-	if p.Sender == nil {
+	if p.sender == nil {
 		return nil
 	}
 
-	return p.Sender.Send(v)
+	return p.sender.Send(v)
 }
 
 func (p proc) Context() context.Context {
@@ -48,10 +48,10 @@ func (p proc) Context() context.Context {
 }
 
 func (p proc) cancel() {
-	if p.Consumer == nil {
+	if p.consumer == nil {
 		return
 	}
-	p.Consumer.cancel()
+	p.consumer.cancel()
 }
 
 func (p proc) Println(args ...interface{}) {
