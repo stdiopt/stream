@@ -90,7 +90,7 @@ func Encode(comma rune, encodeOpts ...encodeOpt) strm.Pipe {
 	})
 }
 
-// Decode receives bytes and produces [][]string fields?
+// Decode receives bytes and produces []string fields
 func Decode(comma rune) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		rd := strmio.AsReader(p)
