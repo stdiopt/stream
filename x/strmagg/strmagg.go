@@ -90,6 +90,7 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 		if err != nil {
 			return err
 		}
+		// use drow here
 		return p.Send(group)
 	})
 }

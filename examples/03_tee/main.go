@@ -31,25 +31,21 @@ func main() {
 		stream.Tee(
 			stream.Line(
 				// Only sends if number is even
-				stream.Func(func(p stream.Proc) error {
-					return p.Consume(func(v interface{}) error {
-						if n, ok := v.(int); ok && n&1 == 0 {
-							return p.Send(v)
-						}
-						return nil
-					})
+				stream.S(func(p stream.Sender, v interface{}) error {
+					if n, ok := v.(int); ok && n&1 == 0 {
+						return p.Send(v)
+					}
+					return nil
 				}),
 				termColor("\033[01;32m"),
 			),
 			// Only sends if number is odd
 			stream.Line(
-				stream.Func(func(p stream.Proc) error {
-					return p.Consume(func(v interface{}) error {
-						if n, ok := v.(int); ok && n&1 == 1 {
-							return p.Send(v)
-						}
-						return nil
-					})
+				stream.S(func(p stream.Sender, v interface{}) error {
+					if n, ok := v.(int); ok && n&1 == 1 {
+						return p.Send(v)
+					}
+					return nil
 				}),
 				termColor("\033[01;31m"),
 			),

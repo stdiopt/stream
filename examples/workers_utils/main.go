@@ -6,13 +6,14 @@ import (
 	"io/ioutil"
 	"log"
 	"mime"
-	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/strmio"
 	"github.com/stdiopt/stream/strmjson"
 	"github.com/stdiopt/stream/strmrefl"
+	"github.com/stdiopt/stream/strmutil"
 	"github.com/stdiopt/stream/x/strmhttp"
 )
 
@@ -24,10 +25,15 @@ func main() {
 		strmjson.Decode(nil),
 		strmrefl.Extract("results"),
 		strmrefl.Unslice(),
-		strmrefl.Extract("picture.thumbnail"),
+		strmrefl.Extract("picture", "thumbnail"),
 		stream.Workers(32,
-			strmhttp.GetResponse(),
-			stream.Func(HTTPDownload),
+			stream.S(func(s stream.Sender, url string) error {
+				return stream.RunWithContext(s.Context(),
+					strmhttp.Get(url),
+					HTTPDownload(url),
+					strmutil.Pass(s),
+				)
+			}),
 		),
 		strmjson.Dump(os.Stdout),
 	)
@@ -41,18 +47,14 @@ type HTTPDownloadOutput struct {
 	Data string
 }
 
-func HTTPDownload(p stream.Proc) error {
-	return p.Consume(func(v interface{}) error {
-		res, ok := v.(*http.Response)
-		if !ok {
-			return fmt.Errorf("needs a *http.Response but got: %T", v)
-		}
-		defer res.Body.Close()
-		url := res.Request.URL.String()
-		data, err := ioutil.ReadAll(res.Body)
+func HTTPDownload(url string) stream.Pipe {
+	return stream.Func(func(p stream.Proc) error {
+		r := strmio.AsReader(p)
+		data, err := ioutil.ReadAll(r)
 		if err != nil {
 			return err
 		}
+
 		b64data := base64.StdEncoding.EncodeToString(data)
 		m := mime.TypeByExtension(filepath.Ext(url))
 

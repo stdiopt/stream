@@ -31,11 +31,7 @@ func stringify(p stream.Proc) error {
 
 // Receives strings and reverse
 func reverse(p stream.Proc) error {
-	return p.Consume(func(v interface{}) error {
-		s, ok := v.(string)
-		if !ok {
-			return fmt.Errorf("wrong type: wants string got %T", v)
-		}
+	return p.Consume(func(s string) error {
 		runes := []rune(s)
 		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
 			runes[i], runes[j] = runes[j], runes[i]

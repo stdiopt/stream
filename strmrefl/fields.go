@@ -70,11 +70,7 @@ func FieldOf(v interface{}, ff ...interface{}) (interface{}, error) {
 			}
 			cur = cur.Index(i)
 		case reflect.Map:
-			//if cur.Type().Key().Kind() != reflect.String {
-			//	return reflect.Value{}, fmt.Errorf("map: key invalid: %q of %T", k, v)
-			//}
 			cur = cur.MapIndex(reflect.ValueOf(k))
-			continue
 		case reflect.Invalid:
 			return nil, fmt.Errorf("invalid type %v", v)
 		default:

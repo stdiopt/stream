@@ -17,14 +17,14 @@ func main() {
 			}
 			return nil
 		}),
-		// if ran without workers it would take at least 10 seconds for the input above
-		stream.Workers(10, stream.Func(func(p stream.Proc) error {
-			return p.Consume(func(v interface{}) error {
+		// if run without workers it would take at least 10 seconds for the input above
+		stream.Workers(10,
+			stream.S(func(s stream.Sender, v interface{}) error {
 				n := v.(int)
 				time.Sleep(time.Second) // Simulate work
-				return p.Send(n * n)
-			})
-		})),
+				return s.Send(n * n)
+			}),
+		),
 		// buffer creates an underlying channel with 100 capacity
 		stream.Buffer(100, stream.Func(func(p stream.Proc) error {
 			return p.Consume(func(v interface{}) error {

@@ -33,7 +33,7 @@ func normalizeGoField(istr string) (string, error) {
 	toUpper := true
 	res := make([]rune, 0, len(rn))
 	wc := 0
-	var last rune
+	// var last rune
 	for _, r := range rn {
 		if splitter(r) {
 			wc = 0
@@ -41,16 +41,16 @@ func normalizeGoField(istr string) (string, error) {
 			continue
 		}
 		wc++
-		if wc > 4 && isVogal(last) {
-			continue
-		}
+		//if wc > 4 && isVogal(last) {
+		//	continue
+		//}
 		if toUpper {
 			res = append(res, unicode.ToUpper(r))
 		} else {
 			res = append(res, unicode.ToLower(r))
 		}
 		toUpper = false
-		last = r
+		// last = r
 	}
 	return string(res), nil
 }

@@ -2,7 +2,6 @@ package strmdrow
 
 import (
 	"reflect"
-	"strings"
 
 	strm "github.com/stdiopt/stream"
 )
@@ -13,7 +12,11 @@ func AsStruct() strm.Pipe {
 		var typ reflect.Type
 		return p.Consume(func(d Row) error {
 			if typ == nil {
-				typ = toStruct(d)
+				ntyp, err := toStruct(d)
+				if err != nil {
+					return err
+				}
+				typ = ntyp
 			}
 
 			val := reflect.New(typ).Elem()
@@ -25,17 +28,20 @@ func AsStruct() strm.Pipe {
 	})
 }
 
-func toStruct(d Row) reflect.Type {
+func toStruct(d Row) (reflect.Type, error) {
 	fields := []reflect.StructField{}
 
 	for i := range d.Values {
 		h := d.Header(i)
-		colName := strings.ToTitle(h.Name)
+		colName, err := normalizeGoField(h.Name)
+		if err != nil {
+			return nil, err
+		}
 		fields = append(fields, reflect.StructField{
 			Name: colName,
 			Type: h.Type,
 		})
 	}
 
-	return reflect.StructOf(fields)
+	return reflect.StructOf(fields), nil
 }
