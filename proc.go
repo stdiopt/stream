@@ -2,7 +2,6 @@ package stream
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"reflect"
 )
@@ -68,6 +67,8 @@ func (p proc) Printf(format string, args ...interface{}) {
 	p.log.Printf(format, args...)
 }
 
+var ConsumerRegistry = map[reflect.Type]func(interface{}) ConsumerFunc{}
+
 // MakeConsumerFunc returns a consumerFunc
 // Is a bit slower but some what wrappers typed messages.
 func MakeConsumerFunc(fn interface{}) ConsumerFunc {
@@ -77,10 +78,7 @@ func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 		return func(v interface{}) error {
 			b, ok := v.([]byte)
 			if !ok {
-				return TypeMismatchError{
-					want: fmt.Sprintf("%T", []byte(nil)),
-					got:  fmt.Sprintf("%T", v),
-				}
+				return NewTypeMismatchError([]byte(nil), v)
 			}
 			return fn(b)
 		}
@@ -91,6 +89,10 @@ func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 	// Any other param types
 	fnVal := reflect.ValueOf(fn)
 	fnTyp := fnVal.Type()
+	if cfn, ok := ConsumerRegistry[fnTyp]; ok {
+		return cfn(fn)
+	}
+
 	if fnTyp.NumIn() != 1 {
 		panic("func should have 1 params")
 	}
@@ -106,10 +108,7 @@ func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 			args[0] = reflect.ValueOf(v)
 		}
 		if args[0].Type() != fnTyp.In(0) {
-			return TypeMismatchError{
-				want: fnTyp.In(0).String(),
-				got:  args[0].Type().String(),
-			}
+			return NewTypeMismatchError(fnTyp, args[0].Type())
 		}
 		ret := fnVal.Call(args)
 		if err, ok := ret[0].Interface().(error); ok && err != nil {

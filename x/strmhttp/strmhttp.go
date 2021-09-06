@@ -8,19 +8,20 @@ import (
 
 	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmio"
+	"github.com/stdiopt/stream/strmutil"
 )
 
-func WithHeader(k, v string) RequestFunc {
+func WithHeader(k, v string) RequestOpt {
 	return func(r *http.Request) {
 		r.Header.Add(k, v)
 	}
 }
 
-type RequestFunc func(r *http.Request)
+type RequestOpt func(r *http.Request)
 
 // GetResponse receives url as string, performs a get request and sends the
 // response
-func GetResponse(reqFunc ...RequestFunc) strm.Pipe {
+func GetResponse(reqFunc ...RequestOpt) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		return p.Consume(func(v interface{}) error {
 			url, ok := v.(string)
@@ -45,9 +46,16 @@ func GetResponse(reqFunc ...RequestFunc) strm.Pipe {
 	})
 }
 
+func Get(url string, reqFunc ...RequestOpt) strm.Pipe {
+	return strm.Line(
+		strmutil.Value(url),
+		GetFromInput(reqFunc...),
+	)
+}
+
 // Get receives a stream of urls performs a get request and sends the
 // content as []byte returns error on status < 200 || >= 400
-func Get(reqFunc ...RequestFunc) strm.Pipe {
+func GetFromInput(reqFunc ...RequestOpt) strm.Pipe {
 	return strm.S(func(p strm.Sender, url string) error {
 		req, err := http.NewRequestWithContext(p.Context(), http.MethodGet, url, nil)
 		if err != nil {

@@ -43,7 +43,7 @@ type Proc interface {
 	consumer
 }
 
-type procFunc = func(Proc) error
+type ProcFunc = func(Proc) error
 
 // Line will consume and pass a message sequentually on all ProcFuncs.
 func Line(pps ...Pipe) Pipe {

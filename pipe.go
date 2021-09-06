@@ -61,7 +61,11 @@ func S(fn interface{}) Pipe {
 
 var senderTyp = reflect.TypeOf((*Sender)(nil)).Elem()
 
-func makeSProcFunc(fn interface{}) procFunc {
+type SFunc = func(Sender, interface{}) error
+
+var SRegistry = map[reflect.Type]func(fn interface{}) ProcFunc{}
+
+func makeSProcFunc(fn interface{}) ProcFunc {
 	switch fn := fn.(type) {
 	case func(Sender, []byte) error:
 		return func(p Proc) error {
@@ -76,19 +80,23 @@ func makeSProcFunc(fn interface{}) procFunc {
 			})
 		}
 	}
-	return func(p Proc) error {
-		fnVal := reflect.ValueOf(fn)
-		fnTyp := fnVal.Type()
+	fnVal := reflect.ValueOf(fn)
+	fnTyp := fnVal.Type()
+	if cfn, ok := SRegistry[fnTyp]; ok {
+		return cfn(fn)
+	}
 
-		if fnTyp.NumIn() != 2 {
-			panic("func should have 2 params")
-		}
-		if fnTyp.In(0) != senderTyp {
-			panic("first param should be 'strm.Sender'")
-		}
-		if fnTyp.NumOut() != 1 || fnTyp.Out(0) != errTyp {
-			panic("func should have 1 output and must be 'error'")
-		}
+	if fnTyp.NumIn() != 2 {
+		panic("func should have 2 params")
+	}
+	if fnTyp.In(0) != senderTyp {
+		panic("first param should be 'strm.Sender'")
+	}
+	if fnTyp.NumOut() != 1 || fnTyp.Out(0) != errTyp {
+		panic("func should have 1 output and must be 'error'")
+	}
+
+	return func(p Proc) error {
 		args := make([]reflect.Value, 2)
 		args[0] = reflect.ValueOf(Sender(p))
 		return p.Consume(func(v interface{}) error {

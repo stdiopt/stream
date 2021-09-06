@@ -13,7 +13,6 @@ import (
 	"github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmjson"
 	"github.com/stdiopt/stream/strmrefl"
-	"github.com/stdiopt/stream/strmutil"
 	"github.com/stdiopt/stream/x/strmhttp"
 )
 
@@ -21,8 +20,7 @@ var ctxKey string = "k"
 
 func main() {
 	err := stream.Run(
-		strmutil.Value("https://randomuser.me/api/?results=100"),
-		strmhttp.Get(),
+		strmhttp.Get("https://randomuser.me/api/?results=100"),
 		strmjson.Decode(nil),
 		strmrefl.Extract("results"),
 		strmrefl.Unslice(),

@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"errors"
 	"reflect"
 
 	"golang.org/x/sync/errgroup"
@@ -33,6 +34,9 @@ func Route(fn interface{}, sub func(k string) Pipe) Pipe {
 		return p.Consume(func(v interface{}) error {
 			key := routefn(v)
 			if key == "" {
+				return errors.New("invalid routing key")
+			}
+			if key == "-" {
 				return nil
 			}
 			s, ok := senders[key]
