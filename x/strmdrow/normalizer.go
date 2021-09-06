@@ -5,6 +5,7 @@ import (
 	"unicode"
 
 	strm "github.com/stdiopt/stream"
+	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
@@ -15,22 +16,10 @@ type normalizer struct {
 
 type NormalizeOpt func(*normalizer)
 
-func isVogal(r rune) bool {
-	switch unicode.ToLower(r) {
-	case 'a', 'e', 'i', 'o', 'u':
-		return true
-	}
-	return false
-}
-
-func isMn(r rune) bool {
-	return unicode.Is(unicode.Mn, r) // Mn: nonspacing marks
-}
-
 // Normalize to underscore
 func (n normalizer) normalizeName(istr string) (string, error) {
 	// if transform to to regular
-	t := transform.Chain(norm.NFKD, transform.RemoveFunc(isMn), norm.NFC)
+	t := transform.Chain(norm.NFKD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	str, _, err := transform.String(t, istr)
 	if err != nil {
 		return "", err

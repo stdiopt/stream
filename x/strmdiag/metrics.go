@@ -106,18 +106,6 @@ func (m *Metrics) collector(name, desc string, opts ...MetricOpt) *collector {
 	return c
 }
 
-// Do we need to remove?
-func (m *Metrics) remove(c *collector) {
-	m.Lock()
-	defer m.Unlock()
-	for i, cc := range m.collectors {
-		if c == cc {
-			m.collectors = append(m.collectors[:i], m.collectors[i+1:]...)
-			break
-		}
-	}
-}
-
 func (m *Metrics) Count(name string, opts ...MetricOpt) strm.Pipe {
 	c := m.collector(name, "messages processed", opts...)
 	return strm.Func(func(p strm.Proc) error {

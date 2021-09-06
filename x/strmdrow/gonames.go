@@ -3,16 +3,23 @@ package strmdrow
 import (
 	"unicode"
 
+	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
 
-// As go columns
-func normalizeGoField(istr string) (string, error) {
-	isMn := func(r rune) bool {
-		return unicode.Is(unicode.Mn, r) // Mn: nonspacing marks
+// nolint: unused, deadcode
+func isVogal(r rune) bool {
+	switch unicode.ToLower(r) {
+	case 'a', 'e', 'i', 'o', 'u':
+		return true
 	}
-	t := transform.Chain(norm.NFKD, transform.RemoveFunc(isMn), norm.NFC)
+	return false
+}
+
+// nolint: unused, deadcode
+func normalizeGoField(istr string) (string, error) {
+	t := transform.Chain(norm.NFKD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	str, _, err := transform.String(t, istr)
 	if err != nil {
 		return "", err

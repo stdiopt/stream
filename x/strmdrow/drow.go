@@ -171,33 +171,6 @@ func (r Row) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (r *Row) setFromMap(m map[string]interface{}) error {
-	for k, v := range m {
-		switch v := v.(type) {
-		case []interface{}:
-			s := make([]interface{}, 0, len(v))
-			for _, vv := range v {
-				sv := vv
-				if sm, ok := vv.(map[string]interface{}); ok {
-					o := New()
-					o.setFromMap(sm)
-					sv = o
-				}
-				s = append(s, sv)
-			}
-			r.Set(k, s)
-			continue
-		case map[string]interface{}:
-			o := New()
-			o.setFromMap(v)
-			r.Set(k, o)
-			continue
-		}
-		r.Set(k, v)
-	}
-	return nil
-}
-
 func (r *Row) UnmarshalJSON(d []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(d))
 	dec.UseNumber()

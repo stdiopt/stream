@@ -108,7 +108,7 @@ func MakeConsumerFunc(fn interface{}) ConsumerFunc {
 			args[0] = reflect.ValueOf(v)
 		}
 		if args[0].Type() != fnTyp.In(0) {
-			return NewTypeMismatchError(fnTyp, args[0].Type())
+			return NewTypeMismatchError(fnTyp.In(0), args[0].Type())
 		}
 		ret := fnVal.Call(args)
 		if err, ok := ret[0].Interface().(error); ok && err != nil {
