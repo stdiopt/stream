@@ -11,6 +11,17 @@ import (
 
 type Dialect int
 
+func (d Dialect) String() string {
+	switch d {
+	case MySQL:
+		return "MySQL"
+	case PSQL:
+		return "PSQL"
+	default:
+		return "<undefined>"
+	}
+}
+
 const (
 	MySQL = Dialect(iota + 1)
 	PSQL
@@ -85,7 +96,11 @@ func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) strm.Pipe {
 
 func Field(f ...interface{}) argFunc {
 	return func(v interface{}) (interface{}, error) {
-		return strmrefl.FieldOf(v, f...)
+		f := strmrefl.FieldOf(v, f...)
+		if f == nil {
+			return nil, fmt.Errorf("invalid field: %v", f)
+		}
+		return f, nil
 	}
 }
 

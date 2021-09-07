@@ -39,13 +39,26 @@ func WriteFile(path string) strm.Pipe {
 	})
 }
 
-func ReadFile() strm.Pipe {
+func File(path string) strm.Pipe {
+	return strm.S(func(s strm.Sender, _ interface{}) error {
+		w := strmio.AsWriter(s)
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(w, f)
+		return err
+	})
+}
+
+func FileFromInput() strm.Pipe {
 	return strm.S(func(s strm.Sender, path string) error {
 		w := strmio.AsWriter(s)
 		f, err := os.Open(path)
 		if err != nil {
 			return err
 		}
+		defer f.Close()
 		_, err = io.Copy(w, f)
 		return err
 	})

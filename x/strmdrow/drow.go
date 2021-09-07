@@ -118,6 +118,16 @@ func (r Row) Get(k string) interface{} {
 	return r.Value(r.header.index[k])
 }
 
+func (r Row) GetInt(k string) int {
+	i, _ := r.Get(k).(int)
+	return i
+}
+
+func (r Row) GetString(k string) string {
+	i, _ := r.Get(k).(string)
+	return i
+}
+
 func (r Row) Value(i int) interface{} {
 	if i < 0 || i >= len(r.Values) {
 		return nil

@@ -71,7 +71,7 @@ func TestListFiles(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pp := ListFiles(tt.args.pattern)
+			pp := FindFromInput(tt.args.pattern)
 			if pp == nil {
 				t.Errorf("ListFiles() is nil = %v, want %v", pp == nil, false)
 			}

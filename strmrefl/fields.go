@@ -1,6 +1,7 @@
 package strmrefl
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -20,9 +21,9 @@ type FMap map[string]Fields
 // on a slice it's possible to have Field1.0.Field2
 func Extract(f ...interface{}) strm.Pipe {
 	return strm.S(func(s strm.Sender, v interface{}) error {
-		val, err := FieldOf(v, f...)
-		if err != nil {
-			return err
+		val := FieldOf(v, f...)
+		if val == nil {
+			return fmt.Errorf("field invalid: %v", f)
 		}
 		return s.Send(val)
 	})
@@ -43,9 +44,9 @@ func StructMap(target interface{}, fm FMap) strm.Pipe {
 				return fmt.Errorf("field not found %q in %T", k, target)
 			}
 
-			val, err := FieldOf(v, f...)
-			if err != nil {
-				return err
+			val := FieldOf(v, f...)
+			if val == nil {
+				return errors.New("invalid field")
 			}
 			field.Set(reflect.ValueOf(val))
 		}
@@ -54,7 +55,38 @@ func StructMap(target interface{}, fm FMap) strm.Pipe {
 }
 
 // FieldOf returns a field of the value v by walking through the field params.
-func FieldOf(v interface{}, ff ...interface{}) (interface{}, error) {
+func FieldOf(v interface{}, ff ...interface{}) interface{} {
+	cur := reflect.Indirect(reflect.ValueOf(v))
+	for _, k := range ff {
+		switch cur.Kind() {
+		case reflect.Struct:
+			cur = cur.FieldByName(k.(string))
+			if !cur.IsValid() {
+				return nil
+			}
+		case reflect.Slice:
+			i, ok := k.(int)
+			if !ok {
+				return nil
+			}
+			cur = cur.Index(i)
+		case reflect.Map:
+			cur = cur.MapIndex(reflect.ValueOf(k))
+		case reflect.Invalid:
+			return nil
+		default:
+			return nil
+		}
+		cur = reflect.Indirect(cur)
+		// This will solve stuff with underlying interface types
+		// (e.g: interface{} in map[string]interface{})
+		cur = reflect.ValueOf(cur.Interface())
+	}
+	return cur.Interface()
+}
+
+// FieldOf returns a field of the value v by walking through the field params.
+/*func FieldOf(v interface{}, ff ...interface{}) (interface{}, error) {
 	cur := reflect.Indirect(reflect.ValueOf(v))
 	for _, k := range ff {
 		switch cur.Kind() {
@@ -82,4 +114,4 @@ func FieldOf(v interface{}, ff ...interface{}) (interface{}, error) {
 		cur = reflect.ValueOf(cur.Interface())
 	}
 	return cur.Interface(), nil
-}
+}*/

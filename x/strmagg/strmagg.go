@@ -2,17 +2,23 @@
 package strmagg
 
 import (
+	"fmt"
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/strmrefl"
+	"github.com/stdiopt/stream/x/strmdrow"
 )
 
 type FieldFunc = func(interface{}) (interface{}, error)
 
 func Field(f ...interface{}) FieldFunc {
 	return func(v interface{}) (interface{}, error) {
-		return strmrefl.FieldOf(v, f...)
+		val := strmrefl.FieldOf(v, f...)
+		if val == nil {
+			return nil, fmt.Errorf("invalid field: %v", f)
+		}
+		return val, nil
 	}
 }
 
@@ -29,8 +35,8 @@ type Group struct {
 }
 
 type aggOptField struct {
-	Name       string
-	FieldFunc  FieldFunc
+	Name string
+	// FieldFunc  FieldFunc
 	ReduceFunc func(a, v interface{}) interface{}
 }
 
@@ -41,6 +47,8 @@ type aggOptions struct {
 }
 
 type AggOptFunc func(a *aggOptions)
+
+type aggAll struct{}
 
 func Aggregate(opt ...AggOptFunc) strm.Pipe {
 	o := aggOptions{}
@@ -53,9 +61,13 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 		group := []*Group{}
 
 		err := p.Consume(func(v interface{}) error {
-			key, err := o.groupBy(v)
-			if err != nil {
-				return err
+			key := interface{}(aggAll{})
+			if o.groupBy != nil {
+				gkey, err := o.groupBy(v)
+				if err != nil {
+					return err
+				}
+				key = gkey
 			}
 
 			g, ok := groupRef[key]
@@ -78,11 +90,7 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 					}
 					g.Aggs[i] = ar
 				}
-				fi, err := a.FieldFunc(v)
-				if err != nil {
-					continue
-				}
-				ar.Value = a.ReduceFunc(ar.Value, fi)
+				ar.Value = a.ReduceFunc(ar.Value, v)
 			}
 
 			return nil
@@ -90,22 +98,34 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 		if err != nil {
 			return err
 		}
-		// use drow here
-		return p.Send(group)
+		rec := strmdrow.New()
+		for _, g := range group {
+			if o.groupBy != nil {
+				rec.Set(g.Field, g.Value)
+			}
+			for _, a := range g.Aggs {
+				rec.Set(a.Field, a.Value)
+			}
+			if err := p.Send(rec); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
-func GroupBy(name string, fn FieldFunc) AggOptFunc {
+func GroupBy(name string, ifn interface{}) AggOptFunc {
+	fn := makeGroupFunc(ifn)
 	return func(a *aggOptions) {
 		a.name = name
 		a.groupBy = fn
 	}
 }
 
-func Reduce(name string, field FieldFunc, fni interface{}) AggOptFunc {
-	fn := makeReduceFunc(fni)
+func Reduce(name string, ifn interface{}) AggOptFunc {
+	fn := makeReduceFunc(ifn)
 	return func(a *aggOptions) {
-		a.aggs = append(a.aggs, aggOptField{name, field, fn})
+		a.aggs = append(a.aggs, aggOptField{name, fn})
 	}
 }
 
@@ -114,10 +134,10 @@ func makeReduceFunc(fn interface{}) func(a, v interface{}) interface{} {
 	fnVal := reflect.ValueOf(fn)
 	typ := fnVal.Type()
 	if typ.NumIn() != 2 {
-		panic("requires 2 arguments")
+		panic("reduce func requires 2 inputs")
 	}
 	if typ.NumOut() != 1 {
-		panic("requires 1 return")
+		panic("reduce func requires 1 output")
 	}
 	if typ.In(0) != typ.Out(0) {
 		panic("return type should be equal to first argument")
@@ -135,5 +155,29 @@ func makeReduceFunc(fn interface{}) func(a, v interface{}) interface{} {
 
 		ret := fnVal.Call(args)
 		return ret[0].Interface()
+	}
+}
+
+func makeGroupFunc(fn interface{}) func(interface{}) (interface{}, error) {
+	fnVal := reflect.ValueOf(fn)
+	typ := fnVal.Type()
+	if typ.NumIn() != 1 {
+		panic("group func requires 1 input")
+	}
+	if typ.NumOut() < 1 || typ.NumOut() > 2 {
+		panic("group func requires 2 output")
+	}
+	return func(v interface{}) (interface{}, error) {
+		arg := reflect.ValueOf(v)
+
+		args := []reflect.Value{arg}
+		ret := fnVal.Call(args)
+
+		if len(ret) > 1 {
+			if err, ok := ret[1].Interface().(error); ok && err != nil {
+				return ret[1].Interface(), err
+			}
+		}
+		return ret[0].Interface(), nil
 	}
 }

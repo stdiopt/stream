@@ -314,11 +314,11 @@ func TestFieldOf(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := FieldOf(tt.args.v, tt.args.ff...)
-			if !strmtest.MatchError(tt.wantErr, err) {
+			got := FieldOf(tt.args.v, tt.args.ff...)
+			/*if !strmtest.MatchError(tt.wantErr, err) {
 				t.Errorf("FieldOf() error = %v, wantErr %v", err, tt.wantErr)
 				return
-			}
+			}*/
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FieldOf() = %v, want %v", got, tt.want)
 			}

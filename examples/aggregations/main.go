@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -30,11 +31,11 @@ func main() {
 		strmagg.Aggregate(
 			// manually processes the above message and returns the month of birth as the key for the group
 			strmagg.GroupBy("birth months", func(v interface{}) (interface{}, error) {
-				dob, err := strmrefl.FieldOf(v, "dob", "date")
-				if err != nil {
-					return nil, err
+				dob, ok := strmrefl.FieldOf(v, "dob", "date").(string)
+				if !ok {
+					return nil, errors.New("invalid field")
 				}
-				tm, err := time.Parse(time.RFC3339, dob.(string))
+				tm, err := time.Parse(time.RFC3339, dob)
 				if err != nil {
 					return nil, err
 				}
@@ -42,14 +43,19 @@ func main() {
 				return tm.Month().String(), nil
 			}),
 			// Processes field "name" of the input and appends into a slice
-			strmagg.Reduce("full name", strmagg.Field("name"), func(a []string, v map[string]interface{}) []string {
-				return append(a, fmt.Sprintf("%s %s", v["first"], v["last"]))
+			strmagg.Reduce("full name", func(a []string, v map[string]interface{}) []string {
+				mv := v["name"].(map[string]interface{})
+				return append(a, fmt.Sprintf("%s %s", mv["first"], mv["last"]))
 			}),
 			// Processes field "dob.age" from the input compares to the last returned one
 			// and returns the maximum (older)
-			strmagg.Reduce("older", strmagg.Field("dob", "age"), func(a *float64, v float64) *float64 {
-				if a == nil || v > *a {
-					return &v
+			strmagg.Reduce("older", func(a *float64, v interface{}) *float64 {
+				f, ok := strmrefl.FieldOf(v, "dob", "age").(float64)
+				if !ok {
+					return a
+				}
+				if a == nil || f > *a {
+					return &f
 				}
 				return a
 			}),

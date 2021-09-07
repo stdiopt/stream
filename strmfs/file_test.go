@@ -112,7 +112,7 @@ func TestWriteFile(t *testing.T) {
 	}
 }
 
-func TestReadFile(t *testing.T) {
+func TestFileFromInput(t *testing.T) {
 	tests := []struct {
 		name        string
 		send        []interface{}
@@ -159,9 +159,9 @@ func TestReadFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pp := ReadFile()
+			pp := FileFromInput()
 			if pp == nil {
-				t.Errorf("ReadFile() is nil = %v, want %v", pp == nil, false)
+				t.Errorf("File() is nil = %v, want %v", pp == nil, false)
 			}
 
 			st := strmtest.New(t, pp)

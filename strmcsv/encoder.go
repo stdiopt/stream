@@ -2,6 +2,7 @@ package strmcsv
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -77,7 +78,11 @@ func (e *encoder) autoColumns(v interface{}) {
 		e.columns = append(e.columns, column{
 			hdr: name,
 			fn: func(v interface{}) (interface{}, error) {
-				return strmrefl.FieldOf(v, name)
+				f := strmrefl.FieldOf(v, name)
+				if f == nil {
+					return nil, errors.New("invalid field")
+				}
+				return f, nil
 			},
 		})
 	}
@@ -132,7 +137,11 @@ func Field(hdr string, f ...interface{}) encoderOpt {
 		e.columns = append(e.columns, column{
 			hdr: hdr,
 			fn: func(v interface{}) (interface{}, error) {
-				return strmrefl.FieldOf(v, f...)
+				val := strmrefl.FieldOf(v, f...)
+				if val == nil {
+					return nil, fmt.Errorf("field invalid: %v", f)
+				}
+				return val, nil
 			},
 		})
 	}
