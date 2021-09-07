@@ -146,7 +146,7 @@ func TestFileFromInput(t *testing.T) {
 			send: []interface{}{
 				"./testdata/notfound",
 			},
-			wantErr: "strmfs.ReadFile.* open ./testdata/notfound: no such file or directory",
+			wantErr: "strmfs.FileFromInput.* open ./testdata/notfound: no such file or directory",
 		},
 		{
 			name: "returns error when sender errors",
@@ -154,7 +154,7 @@ func TestFileFromInput(t *testing.T) {
 				"./testdata/01/test.txt",
 			},
 			senderError: errors.New("sender error"),
-			wantErr:     "strmfs.ReadFile.* sender error",
+			wantErr:     "strmfs.FileFromInput.* sender error",
 		},
 	}
 	for _, tt := range tests {

@@ -6,7 +6,7 @@ import (
 	"github.com/stdiopt/stream/strmtest"
 )
 
-func TestListFiles(t *testing.T) {
+func TestFind(t *testing.T) {
 	type args struct {
 		pattern string
 	}
@@ -60,20 +60,20 @@ func TestListFiles(t *testing.T) {
 			name:    "returns error on invalid pattern",
 			args:    args{"["},
 			send:    []interface{}{"./testdata"},
-			wantErr: "strmfs.ListFiles.* syntax error in pattern",
+			wantErr: "strmfs.Find.* syntax error in pattern",
 		},
 		{
 			name:    "returns error on dir error",
 			args:    args{"*"},
 			send:    []interface{}{"nofile"},
-			wantErr: "strmfs.ListFiles.* no such file or directory",
+			wantErr: "strmfs.Find.* no such file or directory",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pp := FindFromInput(tt.args.pattern)
 			if pp == nil {
-				t.Errorf("ListFiles() is nil = %v, want %v", pp == nil, false)
+				t.Errorf("Find() is nil = %v, want %v", pp == nil, false)
 			}
 
 			st := strmtest.New(t, pp)

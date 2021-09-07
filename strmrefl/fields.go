@@ -1,7 +1,6 @@
 package strmrefl
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -29,41 +28,30 @@ func Extract(f ...interface{}) strm.Pipe {
 	})
 }
 
-func StructMap(target interface{}, fm FMap) strm.Pipe {
-	if target == nil {
-		panic("target value is nil")
+// FieldOf returns a field of the value v by walking through the field params.
+func FieldOf(v interface{}, ff ...interface{}) interface{} {
+	return fieldOf(reflect.ValueOf(v), ff...)
+}
+
+// Same as field but returns multiple fields as a []interface{}
+// Good for arguments
+func RowOf(v interface{}, mf ...Fields) []interface{} {
+	res := make([]interface{}, len(mf))
+	r := reflect.ValueOf(v)
+	for i, ff := range mf {
+		res[i] = fieldOf(r, ff...)
 	}
-	typ := reflect.Indirect(reflect.ValueOf(target)).Type()
-	return strm.S(func(p strm.Sender, v interface{}) error {
-		sv := reflect.New(typ)
-		vv := sv.Elem()
-		for k, f := range fm {
-
-			field := vv.FieldByName(k)
-			if !field.IsValid() {
-				return fmt.Errorf("field not found %q in %T", k, target)
-			}
-
-			val := FieldOf(v, f...)
-			if val == nil {
-				return errors.New("invalid field")
-			}
-			field.Set(reflect.ValueOf(val))
-		}
-		return p.Send(vv.Interface())
-	})
+	return res
 }
 
 // FieldOf returns a field of the value v by walking through the field params.
-func FieldOf(v interface{}, ff ...interface{}) interface{} {
-	cur := reflect.Indirect(reflect.ValueOf(v))
+func fieldOf(val reflect.Value, ff ...interface{}) interface{} {
+	cur := reflect.Indirect(val)
 	for _, k := range ff {
 		switch cur.Kind() {
 		case reflect.Struct:
-			cur = cur.FieldByName(k.(string))
-			if !cur.IsValid() {
-				return nil
-			}
+			// Should be optimized by a cache map
+			cur = cachedByName(cur, k.(string))
 		case reflect.Slice:
 			i, ok := k.(int)
 			if !ok {
@@ -72,15 +60,22 @@ func FieldOf(v interface{}, ff ...interface{}) interface{} {
 			cur = cur.Index(i)
 		case reflect.Map:
 			cur = cur.MapIndex(reflect.ValueOf(k))
-		case reflect.Invalid:
-			return nil
 		default:
 			return nil
 		}
 		cur = reflect.Indirect(cur)
+		if !cur.IsValid() {
+			return nil
+		}
+		if cur.Kind() == reflect.Interface {
+			cur = cur.Elem()
+		}
 		// This will solve stuff with underlying interface types
-		// (e.g: interface{} in map[string]interface{})
-		cur = reflect.ValueOf(cur.Interface())
+		// (e.g: interface{} in map[string]interface{}) !?
+		// cur = reflect.ValueOf(cur.Interface())
+	}
+	if !cur.IsValid() {
+		return nil
 	}
 	return cur.Interface()
 }

@@ -52,6 +52,8 @@ func (d Dialect) ExecInsertQry(db *sql.DB, qry string, nparams int, batchParams 
 	return db.Exec(qryBuf.String(), batchParams...)
 }
 
+// Change this to receive params directly as []interface{}
+// create a Tag thing to receive all "sql" params in order?!
 func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		batchParams := []interface{}{}

@@ -47,7 +47,7 @@ func TestExtract(t *testing.T) {
 				sample{Slice: []sub{{Sub: "sub test string"}}},
 				sample{Slice: []sub{{Sub: "sub test string 2"}}},
 			},
-			wantErr: "struct: field invalid",
+			wantErr: "strmrefl.Extract.* field invalid",
 		},
 		{
 			name: "returns error when sender errors",
@@ -75,131 +75,6 @@ func TestExtract(t *testing.T) {
 			}
 
 			st := strmtest.New(t, pp)
-			for _, s := range tt.send {
-				st.Send(s).WithSenderError(tt.senderError)
-			}
-			st.ExpectFull(tt.want...).
-				ExpectError(tt.wantErr).
-				Run()
-		})
-	}
-}
-
-func TestStructMap(t *testing.T) {
-	type sample struct {
-		String string
-		Int    int
-		Slice  []int
-	}
-	type args struct {
-		target interface{}
-		fm     FMap
-	}
-	tests := []struct {
-		name        string
-		args        args
-		send        []interface{}
-		senderError error
-
-		want      []interface{}
-		wantErr   string
-		wantPanic string
-	}{
-		{
-			name: "maps a struct",
-			args: args{
-				target: sample{},
-				fm: FMap{
-					"String": F(),
-				},
-			},
-			send: []interface{}{"a"},
-			want: []interface{}{
-				sample{
-					String: "a",
-				},
-			},
-		},
-		{
-			name: "maps a struct",
-			args: args{
-				target: sample{},
-				fm: FMap{
-					"String": F(0),
-					"Int":    F(1),
-					"Slice":  F(2),
-				},
-			},
-			send: []interface{}{
-				[]interface{}{
-					"some string",
-					7,
-					[]int{1, 2, 3},
-				},
-			},
-			want: []interface{}{
-				sample{
-					String: "some string",
-					Int:    7,
-					Slice:  []int{1, 2, 3},
-				},
-			},
-		},
-		{
-			name: "return error on invalid target field",
-			args: args{
-				target: sample{},
-				fm: FMap{
-					"Test": F(),
-				},
-			},
-			send:    []interface{}{"a"},
-			wantErr: `field not found "Test" in strmrefl.sample`,
-		},
-		{
-			name: "return error on invalid map field",
-			args: args{
-				target: sample{},
-				fm: FMap{
-					"String": F("b"),
-				},
-			},
-			send:    []interface{}{"a"},
-			wantErr: `invalid type`,
-		},
-		{
-			name: "panics on nil target",
-			args: args{
-				target: nil,
-			},
-			send:      []interface{}{"a"},
-			wantPanic: "target value is nil",
-		},
-		{
-			name: "returns error on sender error",
-			args: args{
-				target: sample{},
-			},
-			send:        []interface{}{"a"},
-			senderError: errors.New("sender error"),
-			wantErr:     "sender error",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				p := recover()
-				if !strmtest.MatchPanic(tt.wantPanic, p) {
-					t.Errorf("StructMap() panic = %v, wantPanic %v", p, tt.wantPanic)
-				}
-			}()
-
-			pp := StructMap(tt.args.target, tt.args.fm)
-			if pp == nil {
-				t.Errorf("StructMap() is nil = %v, want %v", pp == nil, false)
-			}
-
-			st := strmtest.New(t, StructMap(tt.args.target, tt.args.fm))
 			for _, s := range tt.send {
 				st.Send(s).WithSenderError(tt.senderError)
 			}

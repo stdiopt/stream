@@ -153,7 +153,7 @@ func TestEncode(t *testing.T) {
 			want: []interface{}{
 				[]byte(`header 1` + "\n"),
 			},
-			wantErr: "strmcsv.Encode.* struct: field invalid",
+			wantErr: "strmcsv.Encode.* field invalid",
 		},
 		{
 			name: "errors when sender errors",
