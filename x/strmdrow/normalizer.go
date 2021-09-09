@@ -81,7 +81,7 @@ func NormalizeColumns(opts ...NormalizeOpt) strm.Pipe {
 				})
 			}
 		}
-		d = d.WithHeader(hdr)
+		d = d.WithHeader(&hdr)
 
 		return s.Send(d)
 	})

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmrefl"
 )
 
 type Dialect int
@@ -54,73 +53,39 @@ func (d Dialect) ExecInsertQry(db *sql.DB, qry string, nparams int, batchParams 
 
 // Change this to receive params directly as []interface{}
 // create a Tag thing to receive all "sql" params in order?!
-func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string, params ...interface{}) strm.Pipe {
+func (d Dialect) InsertBatch(db *sql.DB, batchSize int, qry string) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		batchParams := []interface{}{}
-		err := p.Consume(func(v interface{}) error {
-			pparams, err := solveParams(v, params...)
-			if err != nil {
-				return err
+		paramLen := 0
+		err := p.Consume(func(params []interface{}) error {
+			if paramLen == 0 {
+				// Use the first message to indicate values len
+				paramLen = len(params)
 			}
-			batchParams = append(batchParams, pparams...)
+			batchParams = append(batchParams, params...)
 
 			if len(batchParams)/len(params) >= batchSize {
-				if _, err := d.ExecInsertQry(db, qry, len(params), batchParams...); err != nil {
+				if _, err := d.ExecInsertQry(db, qry, paramLen, batchParams...); err != nil {
 					return err
 				}
 				batchParams = batchParams[:0]
 			}
-			return p.Send(v)
+			return nil
 		})
 		if err != nil {
 			return err
 		}
 		if len(batchParams) > 0 {
-			_, err = d.ExecInsertQry(db, qry, len(params), batchParams...)
+			_, err = d.ExecInsertQry(db, qry, paramLen, batchParams...)
 			return err
 		}
 		return nil
 	})
 }
 
-func (d Dialect) Exec(db *sql.DB, qry string, params ...interface{}) strm.Pipe {
-	return strm.S(func(p strm.Sender, v interface{}) error {
-		pparams, err := solveParams(v, params...)
-		if err != nil {
-			return err
-		}
-		if _, err := db.Exec(qry, pparams...); err != nil {
-			return err
-		}
-		return p.Send(v)
+func (d Dialect) Exec(db *sql.DB, qry string) strm.Pipe {
+	return strm.S(func(_ strm.Sender, params []interface{}) error {
+		_, err := db.Exec(qry, params...)
+		return err
 	})
-}
-
-func Field(f ...interface{}) argFunc {
-	return func(v interface{}) (interface{}, error) {
-		f := strmrefl.FieldOf(v, f...)
-		if f == nil {
-			return nil, fmt.Errorf("invalid field: %v", f)
-		}
-		return f, nil
-	}
-}
-
-type argFunc = func(interface{}) (interface{}, error)
-
-func solveParams(v interface{}, ps ...interface{}) ([]interface{}, error) {
-	var res []interface{}
-	for _, p := range ps {
-		switch p := p.(type) {
-		case argFunc:
-			v, err := p(v)
-			if err != nil {
-				return nil, err
-			}
-			res = append(res, v)
-		default:
-			res = append(res, p)
-		}
-	}
-	return res, nil
 }

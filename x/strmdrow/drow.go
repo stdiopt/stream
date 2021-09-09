@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
@@ -47,10 +46,13 @@ type Header struct {
 	index  map[string]int
 }
 
-func NewHeader(fields ...Field) Header {
-	hdr := Header{}
-	for _, f := range fields {
-		hdr.Add(f)
+func NewHeader(fields ...Field) *Header {
+	hdr := &Header{
+		fields: fields,
+	}
+	hdr.index = map[string]int{}
+	for i, f := range fields {
+		hdr.index[f.Name] = i
 	}
 	return hdr
 }
@@ -79,7 +81,7 @@ func (h *Header) Len() int {
 }
 
 type Row struct {
-	header Header
+	header *Header
 	Values []interface{}
 }
 
@@ -87,11 +89,14 @@ func New() Row {
 	return Row{}
 }
 
-func NewWithHeader(hdr Header) Row {
-	return (Row{}).WithHeader(hdr)
+func NewWithHeader(hdr *Header) Row {
+	return Row{
+		header: hdr,
+		Values: make([]interface{}, len(hdr.fields)),
+	}
 }
 
-func (r Row) WithHeader(hdr Header) Row {
+func (r Row) WithHeader(hdr *Header) Row {
 	r.header = hdr
 	return r
 }
@@ -135,13 +140,15 @@ func (r Row) Value(i int) interface{} {
 	return r.Values[i]
 }
 
+// Do not allow adding a new header unless flagged to
 func (r *Row) Set(k string, v interface{}) {
 	i, ok := r.header.index[k]
 	if !ok {
-		i = r.header.Add(Field{
+		panic("wrong")
+		/*i = r.header.Add(Field{
 			Name: k,
 			Type: reflect.TypeOf(v),
-		})
+		})*/
 	}
 	// Reset header
 	// r.header.fields[i] = Field{Name: k, Type: reflect.TypeOf(v)}
@@ -149,11 +156,11 @@ func (r *Row) Set(k string, v interface{}) {
 		panic(fmt.Sprintf("can't assign %v to %v", t, r.header.fields[i].Type))
 	}
 	// Bound check
-	if i <= len(r.Values) {
+	/*if i <= len(r.Values) {
 		n := make([]interface{}, i+1)
 		copy(n, r.Values)
 		r.Values = n
-	}
+	}*/
 	r.Values[i] = v
 }
 
@@ -181,7 +188,7 @@ func (r Row) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (r *Row) UnmarshalJSON(d []byte) error {
+/*func (r *Row) UnmarshalJSON(d []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(d))
 	dec.UseNumber()
 
@@ -198,9 +205,9 @@ func (r *Row) UnmarshalJSON(d []byte) error {
 	}
 
 	return nil
-}
+}*/
 
-func (r *Row) parseobject(dec *json.Decoder) error {
+/*func (r *Row) parseobject(dec *json.Decoder) error {
 	var t json.Token
 	for dec.More() {
 		t, err := dec.Token()
@@ -290,7 +297,7 @@ func handledelim(t json.Token, dec *json.Decoder) (res interface{}, err error) {
 		}
 	}
 	return t, nil
-}
+}*/
 
 func (r Row) String() string {
 	buf := &bytes.Buffer{}

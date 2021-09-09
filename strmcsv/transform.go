@@ -54,15 +54,17 @@ var stringTyp = reflect.TypeOf(string(""))
 
 func AsDrow() strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
-		var header strmdrow.Header
+		var header *strmdrow.Header
 		return p.Consume(func(row []string) error {
-			if header.Len() == 0 {
+			if header == nil {
+				fields := []strmdrow.Field{}
 				for _, h := range row {
-					header.Add(strmdrow.Field{
+					fields = append(fields, strmdrow.Field{
 						Name: strings.TrimSpace(h),
 						Type: stringTyp,
 					})
 				}
+				header = strmdrow.NewHeader(fields...)
 				return nil
 			}
 

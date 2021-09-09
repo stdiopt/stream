@@ -140,6 +140,30 @@ func Workers(n int, pps ...Pipe) Pipe {
 	}}
 }
 
+func Branch(pps ...Pipe) Pipe {
+	pp := Line(pps...)
+	return pipe{fn: func(p Proc) (err error) {
+		eg, ctx := errgroup.WithContext(p.Context())
+		ch := pp.newChan(ctx, 0)
+		eg.Go(func() error {
+			return pp.Run(ctx, ch, nil)
+		})
+		defer func() {
+			ch.cancel()
+			branchErr := eg.Wait()
+			if err == nil {
+				err = branchErr
+			}
+		}()
+		return p.Consume(func(v interface{}) error {
+			if err := ch.Send(v); err != nil {
+				return err
+			}
+			return p.Send(v)
+		})
+	}}
+}
+
 // Buffer will create an extra buffered channel.
 func Buffer(n int, pps ...Pipe) Pipe {
 	pp := Line(pps...)
