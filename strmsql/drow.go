@@ -11,7 +11,107 @@ import (
 	"github.com/stdiopt/stream/x/strmdrow"
 )
 
-func psqlDDLDrow(name string, row strmdrow.Row) (string, error) {
+type drowInsert struct {
+	table     string
+	batchSize int
+	autoDDL   bool
+
+	rowLen     int
+	ddlChecked bool
+}
+
+//func NewDrowInsertOpts() *drowInsert {
+//	return &drowInsert{}
+//}
+
+func (o *drowInsert) checkDDL(db *sql.DB, row strmdrow.Row) error {
+	if o.rowLen == 0 {
+		o.rowLen = len(row.Values)
+	}
+	if !o.autoDDL {
+		return nil
+	}
+	if !o.ddlChecked {
+		ddlQry, err := psqlDDLQry(o.table, row)
+		if err != nil {
+			return err
+		}
+		if _, err := db.Exec(ddlQry); err != nil {
+			return err
+		}
+		o.ddlChecked = true
+	}
+	return nil
+}
+
+/*func (o *drowInsert) WithAutoDDL(b bool) *drowInsert {
+	o.autoDDL = true
+	return o
+}
+
+func (o *drowInsert) WithBatchSize(n int) *drowInsert {
+	o.batchSize = n
+	return o
+}*/
+
+type drowInsertOpts func(*drowInsert)
+
+func DrowInsertOpts() drowInsertOpts {
+	return func(o *drowInsert) {}
+}
+
+func (fn drowInsertOpts) WithAutoDDL(b bool) drowInsertOpts {
+	return func(o *drowInsert) {
+		fn(o)
+		o.autoDDL = b
+	}
+}
+
+func (fn drowInsertOpts) WithBatchSize(n int) drowInsertOpts {
+	return func(o *drowInsert) {
+		fn(o)
+		o.batchSize = n
+	}
+}
+
+// With options?!
+// WithAutoDDL("table")
+
+// InsertBatchStruct
+func (d Dialect) InsertBatchDROW(db *sql.DB, tname string, opts ...drowInsertOpts) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
+		o := drowInsert{table: tname, batchSize: 100}
+		for _, fn := range opts {
+			fn(&o)
+		}
+		batchParams := []interface{}{}
+		qry := fmt.Sprintf(`insert into "%s" values`, tname)
+		err := p.Consume(func(row strmdrow.Row) error {
+			o.checkDDL(db, row)
+
+			batchParams = append(batchParams, row.Values...)
+
+			if len(batchParams)/o.rowLen >= o.batchSize {
+				if _, err := d.ExecInsertQry(db, qry, o.rowLen, batchParams...); err != nil {
+					return err
+				}
+				batchParams = batchParams[:0]
+			}
+			return nil
+			// return p.Send(row)
+		})
+		if err != nil {
+			return err
+		}
+		if len(batchParams) > 0 {
+			_, err = d.ExecInsertQry(db, qry, o.rowLen, batchParams...)
+			return err
+		}
+		return nil
+	})
+}
+
+func psqlDDLQry(name string, row strmdrow.Row) (string, error) {
 	timeTyp := reflect.TypeOf(time.Time{})
 
 	qry := &bytes.Buffer{}
@@ -46,48 +146,4 @@ func psqlDDLDrow(name string, row strmdrow.Row) (string, error) {
 	}
 	qry.WriteString(")\n")
 	return qry.String(), nil
-}
-
-// InsertBatchStruct
-func (d Dialect) InsertBatchDROW(db *sql.DB, batchSize int, tname string) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		ddlCreated := false
-		rowLen := 0
-		batchParams := []interface{}{}
-		qry := fmt.Sprintf(`insert into "%s" values`, tname)
-		err := p.Consume(func(row strmdrow.Row) error {
-			if !ddlCreated {
-				ddlQry, err := psqlDDLDrow(tname, row)
-				if err != nil {
-					return err
-				}
-				p.Printf("DDL:\n%v\n", ddlQry)
-
-				if _, err := db.Exec(ddlQry); err != nil {
-					return err
-				}
-
-				rowLen = len(row.Values)
-				ddlCreated = true
-			}
-
-			batchParams = append(batchParams, row.Values...)
-
-			if len(batchParams)/rowLen >= batchSize {
-				if _, err := d.ExecInsertQry(db, qry, rowLen, batchParams...); err != nil {
-					return err
-				}
-				batchParams = batchParams[:0]
-			}
-			return p.Send(row)
-		})
-		if err != nil {
-			return err
-		}
-		if len(batchParams) > 0 {
-			_, err = d.ExecInsertQry(db, qry, rowLen, batchParams...)
-			return err
-		}
-		return nil
-	})
 }

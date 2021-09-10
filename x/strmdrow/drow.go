@@ -67,7 +67,7 @@ func (h *Header) Add(f Field) int {
 	}
 	_, ok := h.index[f.Name]
 	if ok {
-		panic("header already exists")
+		panic(fmt.Sprintf(`header "%s" already exists`, f.Name))
 	}
 	h.fields = append(h.fields, f)
 
