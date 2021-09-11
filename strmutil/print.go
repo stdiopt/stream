@@ -29,3 +29,15 @@ func Print(prefix string) strm.Pipe {
 		return p.Send(v)
 	})
 }
+
+func Printf(f string) strm.Pipe {
+	return strm.S(func(p strm.Sender, v interface{}) error {
+		switch v := v.(type) {
+		case []interface{}:
+			fmt.Printf(f, v...)
+		default:
+			fmt.Printf(f, v)
+		}
+		return p.Send(v)
+	})
+}
