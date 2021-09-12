@@ -102,11 +102,11 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 		for _, g := range group {
 			if o.groupBy != nil {
 				// rec.FieldByName(g.Field).Set(g.Value)
-				rec.Set(g.Field, g.Value)
+				rec.SetOrAdd(g.Field, g.Value)
 			}
 			for _, a := range g.Aggs {
 				// rec.FieldByName(a.Field).Set(a.Value)
-				rec.Set(a.Field, a.Value)
+				rec.SetOrAdd(a.Field, a.Value)
 			}
 			if err := p.Send(rec); err != nil {
 				return err

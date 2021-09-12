@@ -114,7 +114,7 @@ func (r *Row) Set(k string, v interface{}) {
 	r.Values[i] = v
 }
 
-func (r *Row) SetOrNew(k string, v interface{}) {
+func (r *Row) SetOrAdd(k string, v interface{}) {
 	if r.header == nil {
 		r.header = NewHeader()
 	}
@@ -206,7 +206,7 @@ func (r *Row) parseobject(dec *json.Decoder) error {
 			return err
 		}
 
-		r.SetOrNew(key, value)
+		r.SetOrAdd(key, value)
 	}
 
 	t, err := dec.Token()
