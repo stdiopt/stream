@@ -40,6 +40,7 @@ func toStruct(d Row) (reflect.Type, error) {
 		fields = append(fields, reflect.StructField{
 			Name: colName,
 			Type: h.Type,
+			Tag:  h.Tag,
 		})
 	}
 

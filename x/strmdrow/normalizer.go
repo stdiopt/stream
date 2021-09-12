@@ -10,11 +10,51 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+func NormalizeColumns(opts ...NormalizeOpt) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
+		n := normalizer{}
+		for _, fn := range opts {
+			fn(&n)
+		}
+		var hdr Header
+		return p.Consume(func(row Row) error {
+			if hdr.Len() == 0 {
+				for i := range row.Values {
+					h := row.Header(i)
+					colName, err := n.normalizeName(h.Name)
+					if err != nil {
+						return err
+					}
+					hdr.Add(Field{
+						Name: colName,
+						Type: h.Type,
+					})
+				}
+			}
+			row = row.WithHeader(&hdr)
+			return p.Send(row)
+		})
+	})
+}
+
+func WithMaxSize(m int) NormalizeOpt {
+	return func(n *normalizer) {
+		n.maxChars = m
+	}
+}
+
 type normalizer struct {
 	maxChars int
 }
 
 type NormalizeOpt func(*normalizer)
+
+func (fn NormalizeOpt) WithMaxSize(m int) NormalizeOpt {
+	return func(n *normalizer) {
+		fn(n)
+		n.maxChars = m
+	}
+}
 
 // Normalize to underscore
 func (n normalizer) normalizeName(istr string) (string, error) {
@@ -54,41 +94,4 @@ func (n normalizer) normalizeName(istr string) (string, error) {
 		}
 	}
 	return strings.Trim(string(res), "_"), nil
-}
-
-func NormalizeColumns(opts ...NormalizeOpt) strm.Pipe {
-	n := normalizer{}
-	for _, fn := range opts {
-		fn(&n)
-	}
-	var hdr Header
-	return strm.S(func(s strm.Sender, v interface{}) error {
-		d, ok := v.(Row)
-		if !ok {
-			return strm.NewTypeMismatchError(Row{}, v)
-		}
-
-		if hdr.Len() == 0 {
-			for i := range d.Values {
-				h := d.Header(i)
-				colName, err := n.normalizeName(h.Name)
-				if err != nil {
-					return err
-				}
-				hdr.Add(Field{
-					Name: colName,
-					Type: h.Type,
-				})
-			}
-		}
-		d = d.WithHeader(&hdr)
-
-		return s.Send(d)
-	})
-}
-
-func WithMaxSize(m int) NormalizeOpt {
-	return func(n *normalizer) {
-		n.maxChars = m
-	}
 }

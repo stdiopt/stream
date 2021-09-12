@@ -2,49 +2,38 @@ package strmsql
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
-	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/x/strmdrow"
 )
 
-func InsertBatch(db *sql.DB, qry string, opts ...batchInsertOpt) strm.Pipe {
-	return strm.Func(func(p strm.Proc) (err error) {
-		b := newBatchInsert(p.Context(), db, qry)
-		for _, fn := range opts {
-			fn(&b)
-		}
-		if err := p.Consume(b.Add); err != nil {
-			return err
-		}
-		return b.flush()
-	})
-}
-
 type batchInsert struct {
-	ctx      context.Context
-	dialect  Dialecter
-	db       *sql.DB
+	ctx    context.Context
+	strmdb *DB
+	qry    string
+
 	batch    []interface{}
 	rowLen   int
 	rowCount int
 
 	typeChecked bool
 
-	qry       string
 	batchSize int
 	autoDDL   string
 }
 
-func newBatchInsert(ctx context.Context, db *sql.DB, qry string) batchInsert {
-	return batchInsert{
+func newBatchInsert(ctx context.Context, db *DB, qry string, opts ...batchInsertOpt) batchInsert {
+	b := batchInsert{
 		ctx:       ctx,
-		db:        db,
+		strmdb:    db,
 		qry:       qry,
 		batchSize: 2,
 	}
+	for _, fn := range opts {
+		fn(&b)
+	}
+	return b
 }
 
 func (b *batchInsert) checkInitial(v interface{}) error {
@@ -58,9 +47,9 @@ func (b *batchInsert) checkInitial(v interface{}) error {
 			return errors.New("auto DDL only supported on drow")
 		}
 		// Grab dialect from somewhere
-		qry := b.dialect.QryDDL(b.autoDDL, row)
-		if _, err := b.db.Exec(qry); err != nil {
-			return err
+		qry := b.strmdb.dialect.QryDDL(b.autoDDL, row)
+		if _, err := b.strmdb.db.Exec(qry); err != nil {
+			return fmt.Errorf("query error: %w on %v", err, qry)
 		}
 	}
 
@@ -97,9 +86,12 @@ func (b *batchInsert) Add(v interface{}) error {
 }
 
 func (b *batchInsert) flush() error {
-	qry := b.dialect.QryBatch(b.qry, b.rowLen, b.rowCount)
-	if _, err := b.db.ExecContext(b.ctx, qry, b.batch...); err != nil {
-		return err
+	if b.rowCount == 0 {
+		return nil
+	}
+	qry := b.strmdb.dialect.QryBatch(b.qry, b.rowLen, b.rowCount)
+	if _, err := b.strmdb.db.ExecContext(b.ctx, qry, b.batch...); err != nil {
+		return fmt.Errorf("query error %w on query %s", err, qry)
 	}
 	b.batch = b.batch[:0]
 	b.rowCount = 0
@@ -108,18 +100,12 @@ func (b *batchInsert) flush() error {
 
 type batchInsertOpt func(*batchInsert)
 
-func BatchInsertOpt() batchInsertOpt {
-	return func(*batchInsert) {}
-}
+var BatchOptions = batchInsertOpt(func(*batchInsert) {})
 
-func (fn batchInsertOpt) WithBatchSize(n int) batchInsertOpt {
+func (fn batchInsertOpt) WithSize(n int) batchInsertOpt {
 	return func(o *batchInsert) { fn(o); o.batchSize = n }
 }
 
 func (fn batchInsertOpt) WithAutoDDL(t string) batchInsertOpt {
 	return func(o *batchInsert) { fn(o); o.autoDDL = t }
-}
-
-func (fn batchInsertOpt) WithDialect(d Dialecter) batchInsertOpt {
-	return func(o *batchInsert) { fn(o); o.dialect = d }
 }

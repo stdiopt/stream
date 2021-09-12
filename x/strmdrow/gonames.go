@@ -41,16 +41,12 @@ func normalizeGoField(istr string) (string, error) {
 			continue
 		}
 		wc++
-		//if wc > 4 && isVogal(last) {
-		//	continue
-		//}
 		if toUpper {
 			res = append(res, unicode.ToUpper(r))
 		} else {
 			res = append(res, unicode.ToLower(r))
 		}
 		toUpper = false
-		// last = r
 	}
 	return string(res), nil
 }

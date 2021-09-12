@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
@@ -41,52 +42,13 @@ type Field struct {
 	Tag  reflect.StructTag
 }
 
-type Header struct {
-	fields []Field
-	index  map[string]int
-}
-
-func NewHeader(fields ...Field) *Header {
-	hdr := &Header{
-		fields: fields,
-	}
-	hdr.index = map[string]int{}
-	for i, f := range fields {
-		hdr.index[f.Name] = i
-	}
-	return hdr
-}
-
-func (h *Header) Fields() []Field {
-	return h.fields
-}
-
-func (h *Header) Add(f Field) int {
-	if h.index == nil {
-		h.index = map[string]int{}
-	}
-	_, ok := h.index[f.Name]
-	if ok {
-		panic(fmt.Sprintf(`header "%s" already exists`, f.Name))
-	}
-	h.fields = append(h.fields, f)
-
-	i := len(h.fields) - 1
-	h.index[f.Name] = i
-	return i
-}
-
-func (h *Header) Len() int {
-	return len(h.fields)
-}
-
 type Row struct {
 	header *Header
 	Values []interface{}
 }
 
 func New() Row {
-	return Row{}
+	return Row{header: NewHeader()}
 }
 
 func NewWithHeader(hdr *Header) Row {
@@ -144,23 +106,34 @@ func (r Row) Value(i int) interface{} {
 func (r *Row) Set(k string, v interface{}) {
 	i, ok := r.header.index[k]
 	if !ok {
-		panic("wrong")
-		/*i = r.header.Add(Field{
-			Name: k,
-			Type: reflect.TypeOf(v),
-		})*/
+		panic(fmt.Sprintf("field %s doesn't exists", k))
 	}
-	// Reset header
-	// r.header.fields[i] = Field{Name: k, Type: reflect.TypeOf(v)}
 	if t := reflect.TypeOf(v); t != r.header.fields[i].Type {
 		panic(fmt.Sprintf("can't assign %v to %v", t, r.header.fields[i].Type))
 	}
+	r.Values[i] = v
+}
+
+func (r *Row) SetOrNew(k string, v interface{}) {
+	if r.header == nil {
+		r.header = NewHeader()
+	}
+	i, ok := r.header.index[k]
+	if !ok {
+		i = r.header.Add(Field{
+			Name: k,
+			Type: reflect.TypeOf(v),
+		})
+	}
+	if t := reflect.TypeOf(v); t != r.header.fields[i].Type {
+		r.header.fields[i] = Field{Name: k, Type: reflect.TypeOf(v)}
+	}
 	// Bound check
-	/*if i <= len(r.Values) {
+	if i <= len(r.Values) {
 		n := make([]interface{}, i+1)
 		copy(n, r.Values)
 		r.Values = n
-	}*/
+	}
 	r.Values[i] = v
 }
 
@@ -188,9 +161,9 @@ func (r Row) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-/*func (r *Row) UnmarshalJSON(d []byte) error {
+func (r *Row) UnmarshalJSON(d []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(d))
-	dec.UseNumber()
+	// dec.UseNumber()
 
 	t, err := dec.Token()
 	if err != nil {
@@ -205,9 +178,9 @@ func (r Row) MarshalJSON() ([]byte, error) {
 	}
 
 	return nil
-}*/
+}
 
-/*func (r *Row) parseobject(dec *json.Decoder) error {
+func (r *Row) parseobject(dec *json.Decoder) error {
 	var t json.Token
 	for dec.More() {
 		t, err := dec.Token()
@@ -233,7 +206,7 @@ func (r Row) MarshalJSON() ([]byte, error) {
 			return err
 		}
 
-		r.Set(key, value)
+		r.SetOrNew(key, value)
 	}
 
 	t, err := dec.Token()
@@ -293,11 +266,11 @@ func handledelim(t json.Token, dec *json.Decoder) (res interface{}, err error) {
 			}
 			return value, nil
 		default:
-			return nil, fmt.Errorf("Unexpected delimiter: %q", delim)
+			return nil, fmt.Errorf("unexpected delimiter: %q", delim)
 		}
 	}
 	return t, nil
-}*/
+}
 
 func (r Row) String() string {
 	buf := &bytes.Buffer{}
