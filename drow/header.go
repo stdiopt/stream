@@ -1,6 +1,15 @@
-package strmdrow
+package drow
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
+
+type Field struct {
+	Name string
+	Type reflect.Type
+	Tag  reflect.StructTag
+}
 
 type Header struct {
 	fields []Field

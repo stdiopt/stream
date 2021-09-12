@@ -1,63 +1,39 @@
-package strmdrow
+package drow
 
 import (
 	"strings"
 	"unicode"
 
-	strm "github.com/stdiopt/stream"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
 
-func NormalizeColumns(opts ...NormalizeOpt) strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		n := normalizer{}
-		for _, fn := range opts {
-			fn(&n)
-		}
-		var hdr Header
-		return p.Consume(func(row Row) error {
-			if hdr.Len() == 0 {
-				for i := range row.Values {
-					h := row.Header(i)
-					colName, err := n.normalizeName(h.Name)
-					if err != nil {
-						return err
-					}
-					hdr.Add(Field{
-						Name: colName,
-						Type: h.Type,
-					})
-				}
-			}
-			row = row.WithHeader(&hdr)
-			return p.Send(row)
-		})
-	})
-}
-
-func WithMaxSize(m int) NormalizeOpt {
-	return func(n *normalizer) {
-		n.maxChars = m
-	}
-}
-
-type normalizer struct {
+type Normalizer struct {
 	maxChars int
 }
 
-type NormalizeOpt func(*normalizer)
+func NewNormalizer(opts ...NormalizeOpt) Normalizer {
+	n := Normalizer{}
+	for _, fn := range opts {
+		fn(&n)
+	}
+	return n
+}
+
+type NormalizeOpt func(*Normalizer)
+
+var NormalizeOption = NormalizeOpt(func(*Normalizer) {})
 
 func (fn NormalizeOpt) WithMaxSize(m int) NormalizeOpt {
-	return func(n *normalizer) {
+	return func(n *Normalizer) {
 		fn(n)
 		n.maxChars = m
 	}
 }
 
 // Normalize to underscore
-func (n normalizer) normalizeName(istr string) (string, error) {
+func (n Normalizer) Name(istr string) (string, error) {
 	// if transform to to regular
 	t := transform.Chain(norm.NFKD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 	str, _, err := transform.String(t, istr)

@@ -32,12 +32,12 @@ func Decode(comma rune) strm.Pipe {
 	})
 }
 
-func DecodeAsStruct(comma rune, sample interface{}) strm.Pipe {
+/*func DecodeAsStruct(comma rune, sample interface{}) strm.Pipe {
 	return strm.Line(
 		Decode(comma),
 		AsStruct(sample),
 	)
-}
+}*/
 
 func DecodeAsDrow(comma rune) strm.Pipe {
 	return strm.Line(

@@ -1,6 +1,6 @@
 // Package drow provides a type containing meta data information.
 // like a row in a table with column meta data
-package strmdrow
+package drow
 
 import (
 	"bytes"
@@ -8,51 +8,19 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-
-	strm "github.com/stdiopt/stream"
 )
-
-func init() {
-	type consumerType = func(Row) error
-	type senderType = func(strm.Sender, Row) error
-	// Registers this type on consumer registry for a fast path
-	strm.ConsumerRegistry[reflect.TypeOf(consumerType(nil))] = func(f interface{}) strm.ConsumerFunc {
-		fn := f.(consumerType)
-		return func(v interface{}) error {
-			r, ok := v.(Row)
-			if !ok {
-				return strm.NewTypeMismatchError(Row{}, v)
-			}
-			return fn(r)
-		}
-	}
-	strm.SRegistry[reflect.TypeOf(senderType(nil))] = func(f interface{}) strm.ProcFunc {
-		fn := f.(senderType)
-		return func(p strm.Proc) error {
-			return p.Consume(func(r Row) error {
-				return fn(p, r)
-			})
-		}
-	}
-}
-
-type Field struct {
-	Name string
-	Type reflect.Type
-	Tag  reflect.StructTag
-}
 
 type Row struct {
 	header *Header
 	Values []interface{}
 }
 
-func New() Row {
-	return Row{header: NewHeader()}
+func New() *Row {
+	return &Row{header: NewHeader()}
 }
 
-func NewWithHeader(hdr *Header) Row {
-	return Row{
+func NewWithHeader(hdr *Header) *Row {
+	return &Row{
 		header: hdr,
 		Values: make([]interface{}, len(hdr.fields)),
 	}
@@ -74,11 +42,38 @@ func (r Row) Header(i int) Field {
 	return r.header.fields[i]
 }
 
-func (r Row) HeaderByName(i int) Field {
+func (r Row) HeaderByName(k string) Field {
+	if r.header == nil || r.header.index == nil {
+		return Field{}
+	}
+	i, ok := r.header.index[k]
+	if !ok {
+		return Field{}
+	}
+
 	if i < 0 || i >= len(r.header.fields) {
 		return Field{}
 	}
 	return r.header.fields[i]
+}
+
+type FieldValue struct {
+	Field
+	Value interface{}
+}
+
+func (r Row) Meta(k string) *FieldValue {
+	if r.header == nil || r.header.index == nil {
+		return nil
+	}
+	i, ok := r.header.index[k]
+	if !ok {
+		return nil
+	}
+	return &FieldValue{
+		Field: r.Header(i),
+		Value: r.Value(i),
+	}
 }
 
 func (r Row) Get(k string) interface{} {
@@ -103,7 +98,7 @@ func (r Row) Value(i int) interface{} {
 }
 
 // Do not allow adding a new header unless flagged to
-func (r *Row) Set(k string, v interface{}) {
+func (r *Row) Set(k string, v interface{}) *Row {
 	i, ok := r.header.index[k]
 	if !ok {
 		panic(fmt.Sprintf("field %s doesn't exists", k))
@@ -112,9 +107,10 @@ func (r *Row) Set(k string, v interface{}) {
 		panic(fmt.Sprintf("can't assign %v to %v", t, r.header.fields[i].Type))
 	}
 	r.Values[i] = v
+	return r
 }
 
-func (r *Row) SetOrAdd(k string, v interface{}) {
+func (r *Row) SetOrAdd(k string, v interface{}) *Row {
 	if r.header == nil {
 		r.header = NewHeader()
 	}
@@ -135,6 +131,18 @@ func (r *Row) SetOrAdd(k string, v interface{}) {
 		r.Values = n
 	}
 	r.Values[i] = v
+	return r
+}
+
+func (r Row) String() string {
+	buf := &bytes.Buffer{}
+	buf.WriteString("{")
+	for i := 0; i < r.NumField(); i++ {
+		h := r.Header(i)
+		fmt.Fprintf(buf, "(%q:%v:%v) ", h.Name, h.Type, r.Value(i))
+	}
+	buf.WriteString("}")
+	return buf.String()
 }
 
 func (r Row) MarshalJSON() ([]byte, error) {
@@ -270,15 +278,4 @@ func handledelim(t json.Token, dec *json.Decoder) (res interface{}, err error) {
 		}
 	}
 	return t, nil
-}
-
-func (r Row) String() string {
-	buf := &bytes.Buffer{}
-	buf.WriteString("{")
-	for i := 0; i < r.NumField(); i++ {
-		h := r.Header(i)
-		fmt.Fprintf(buf, "(%q:%v:%v) ", h.Name, h.Type, r.Value(i))
-	}
-	buf.WriteString("}")
-	return buf.String()
 }

@@ -1,14 +1,15 @@
 package strmcsv
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/x/strmdrow"
+	"github.com/stdiopt/stream/drow"
 )
 
-func AsStruct(sample interface{}) strm.Pipe {
+/*func AsStruct(sample interface{}) strm.Pipe {
 	if sample == nil {
 		panic("param sample is nil")
 	}
@@ -48,27 +49,29 @@ func AsStruct(sample interface{}) strm.Pipe {
 			return p.Send(val.Interface())
 		})
 	})
-}
+}*/
 
 var stringTyp = reflect.TypeOf(string(""))
 
 func AsDrow() strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
-		var header *strmdrow.Header
+		var header *drow.Header
 		return p.Consume(func(row []string) error {
 			if header == nil {
-				fields := []strmdrow.Field{}
+				fields := []drow.Field{}
 				for _, h := range row {
-					fields = append(fields, strmdrow.Field{
-						Name: strings.TrimSpace(h),
+					h := strings.TrimSpace(h)
+					fields = append(fields, drow.Field{
+						Name: h,
 						Type: stringTyp,
+						Tag:  reflect.StructTag(fmt.Sprintf(`csv:"%s"`, h)),
 					})
 				}
-				header = strmdrow.NewHeader(fields...)
+				header = drow.NewHeader(fields...)
 				return nil
 			}
 
-			rec := strmdrow.NewWithHeader(header)
+			rec := drow.NewWithHeader(header)
 			rec.Values = make([]interface{}, len(row))
 			for i := range row {
 				rec.Values[i] = row[i]

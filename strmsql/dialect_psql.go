@@ -6,12 +6,12 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/stdiopt/stream/x/strmdrow"
+	"github.com/stdiopt/stream/drow"
 )
 
 type PSQL struct{}
 
-func (PSQL) QryDDL(name string, row strmdrow.Row) string {
+func (PSQL) QryDDL(name string, row drow.Row) string {
 	timeTyp := reflect.TypeOf(time.Time{})
 
 	qry := &bytes.Buffer{}

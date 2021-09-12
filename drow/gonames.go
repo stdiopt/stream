@@ -1,4 +1,4 @@
-package strmdrow
+package drow
 
 import (
 	"unicode"

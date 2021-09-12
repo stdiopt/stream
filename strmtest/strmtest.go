@@ -3,6 +3,7 @@ package strmtest
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -129,9 +130,12 @@ func (c *Capturer) Run() {
 	for _, r := range results {
 		switch r.send.wantMode {
 		case wantModeOrdered:
-			if diff := cmp.Diff(r.send.want, r.got); diff != "" {
-				c.t.Error("wrong output\n- want + got\n", diff)
+			if !reflect.DeepEqual(r.send.want, r.got) {
+				c.t.Errorf("want %v, got %v", r.send.want, r.got)
 			}
+			/*if diff := cmp.Diff(r.send.want, r.got, cmpopts.IgnoreUnexported()); diff != "" {
+				c.t.Error("wrong output\n- want + got\n", diff)
+			}*/
 		case wantModeAny:
 			got := map[interface{}]int{}
 			for _, v := range r.got {
@@ -149,9 +153,12 @@ func (c *Capturer) Run() {
 	// Full pipe results
 	switch c.wantMode {
 	case wantModeOrdered:
-		if diff := cmp.Diff(c.want, gotFull); diff != "" {
-			c.t.Error("wrong full output\n- want + got\n", diff)
+		if !reflect.DeepEqual(c.want, gotFull) {
+			c.t.Errorf("want %v, got %v", c.want, gotFull)
 		}
+		/*if diff := cmp.Diff(c.want, gotFull,cmp.AllowUnexported()); diff != "" {
+			c.t.Error("wrong full output\n- want + got\n", diff)
+		}*/
 	case wantModeAny:
 		got := map[interface{}]int{}
 		for _, v := range gotFull {

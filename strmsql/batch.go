@@ -2,10 +2,9 @@ package strmsql
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/stdiopt/stream/x/strmdrow"
+	"github.com/stdiopt/stream/drow"
 )
 
 type batchInsert struct {
@@ -41,25 +40,30 @@ func (b *batchInsert) checkInitial(v interface{}) error {
 		return nil
 	}
 	b.typeChecked = true
-	if b.autoDDL != "" {
-		row, ok := v.(strmdrow.Row)
-		if !ok {
-			return errors.New("auto DDL only supported on drow")
-		}
-		// Grab dialect from somewhere
-		qry := b.strmdb.dialect.QryDDL(b.autoDDL, row)
-		if _, err := b.strmdb.db.Exec(qry); err != nil {
-			return fmt.Errorf("query error: %w on %v", err, qry)
-		}
-	}
 
+	var row *drow.Row
 	switch v := v.(type) {
-	case strmdrow.Row:
+	case drow.Row:
 		b.rowLen = len(v.Values)
+		row = &v
+	case *drow.Row:
+		b.rowLen = len(v.Values)
+		row = v
 	case []interface{}:
 		b.rowLen = len(v)
 	default:
-		return fmt.Errorf("invalid type %T, only strmdrow.Row or []interface{} supported", v)
+		return fmt.Errorf("invalid type %T, only drow.Row or []interface{} supported", v)
+	}
+
+	if b.autoDDL != "" {
+		if row == nil {
+			return fmt.Errorf("auto DDL only supported on drow.Row")
+		}
+		// Grab dialect from somewhere
+		qry := b.strmdb.dialect.QryDDL(b.autoDDL, *row)
+		if _, err := b.strmdb.db.Exec(qry); err != nil {
+			return fmt.Errorf("query error: %w on %v", err, qry)
+		}
 	}
 	return nil
 }
@@ -70,12 +74,14 @@ func (b *batchInsert) Add(v interface{}) error {
 		return err
 	}
 	switch v := v.(type) {
-	case strmdrow.Row:
+	case drow.Row:
+		b.batch = append(b.batch, v.Values...)
+	case *drow.Row:
 		b.batch = append(b.batch, v.Values...)
 	case []interface{}:
 		b.batch = append(b.batch, v...)
 	default:
-		b.batch = append(b.batch, v)
+		return fmt.Errorf("invalid type %T, only drow.Row or []interface{} supported", v)
 	}
 
 	b.rowCount++

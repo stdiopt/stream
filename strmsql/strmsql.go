@@ -4,11 +4,11 @@ import (
 	"database/sql"
 
 	strm "github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/x/strmdrow"
+	"github.com/stdiopt/stream/drow"
 )
 
 type Dialecter interface {
-	QryDDL(name string, row strmdrow.Row) string
+	QryDDL(name string, row drow.Row) string
 	QryBatch(qry string, nparams, nrows int) string
 }
 
@@ -25,10 +25,16 @@ func New(db *sql.DB, dialect Dialecter) *DB {
 }
 
 func (d *DB) BatchInsert(qry string, opts ...batchInsertOpt) strm.Pipe {
-	return strm.Func(func(p strm.Proc) (err error) {
+	return strm.Func(func(p strm.Proc) error {
 		ctx := p.Context()
 		b := newBatchInsert(ctx, d, qry, opts...)
-		if err := p.Consume(b.Add); err != nil {
+		err := p.Consume(func(v interface{}) error {
+			if err := b.Add(v); err != nil {
+				return err
+			}
+			return p.Send(v)
+		})
+		if err != nil {
 			return err
 		}
 		return b.flush()
@@ -44,7 +50,7 @@ func (d *DB) Exec(qry string) strm.Pipe {
 
 func (d *DB) Query(qry string) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
-		var hdr *strmdrow.Header
+		var hdr *drow.Header
 		return p.Consume(func(params []interface{}) error {
 			rows, err := d.db.QueryContext(p.Context(), qry, params...)
 			if err != nil {

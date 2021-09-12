@@ -6,8 +6,8 @@ import (
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/drow"
 	"github.com/stdiopt/stream/strmrefl"
-	"github.com/stdiopt/stream/x/strmdrow"
 )
 
 type FieldFunc = func(interface{}) (interface{}, error)
@@ -98,7 +98,7 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 		if err != nil {
 			return err
 		}
-		rec := strmdrow.New()
+		rec := drow.New()
 		for _, g := range group {
 			if o.groupBy != nil {
 				// rec.FieldByName(g.Field).Set(g.Value)
