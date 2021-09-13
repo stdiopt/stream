@@ -2,15 +2,13 @@
 package strmagg
 
 import (
-	"fmt"
 	"reflect"
 
 	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/drow"
-	"github.com/stdiopt/stream/strmrefl"
 )
 
-type FieldFunc = func(interface{}) (interface{}, error)
+/*type FieldFunc = func(interface{}) (interface{}, error)
 
 func Field(f ...interface{}) FieldFunc {
 	return func(v interface{}) (interface{}, error) {
@@ -20,7 +18,7 @@ func Field(f ...interface{}) FieldFunc {
 		}
 		return val, nil
 	}
-}
+}*/
 
 type AggEl struct {
 	Field string
@@ -35,14 +33,13 @@ type Group struct {
 }
 
 type aggOptField struct {
-	Name string
-	// FieldFunc  FieldFunc
+	Name       string
 	ReduceFunc func(a, v interface{}) interface{}
 }
 
 type aggOptions struct {
 	name    string
-	groupBy FieldFunc
+	groupBy func(interface{}) (interface{}, error)
 	aggs    []aggOptField
 }
 

@@ -95,18 +95,18 @@ func TestDB_BatchInsert(t *testing.T) {
 					WillReturnResult(driver.ResultNoRows)
 			},
 			send: []interface{}{
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 1).
 					SetOrAdd("field2", 2),
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 3).
 					SetOrAdd("field2", 4),
 			},
 			want: []interface{}{
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 1).
 					SetOrAdd("field2", 2),
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 3).
 					SetOrAdd("field2", 4),
 			},
@@ -132,14 +132,14 @@ func TestDB_BatchInsert(t *testing.T) {
 					WillReturnResult(driver.ResultNoRows)
 			},
 			send: []interface{}{
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 1).
 					SetOrAdd("field2", 2).
 					SetOrAdd("field3", new(int)).
 					SetOrAdd("field4", uint(4)).
 					SetOrAdd("field5", "5").
 					SetOrAdd("field6", now),
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 7).
 					SetOrAdd("field2", 8).
 					SetOrAdd("field3", new(int)).
@@ -148,14 +148,14 @@ func TestDB_BatchInsert(t *testing.T) {
 					SetOrAdd("field6", now),
 			},
 			want: []interface{}{
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 1).
 					SetOrAdd("field2", 2).
 					SetOrAdd("field3", new(int)).
 					SetOrAdd("field4", uint(4)).
 					SetOrAdd("field5", "5").
 					SetOrAdd("field6", now),
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 7).
 					SetOrAdd("field2", 8).
 					SetOrAdd("field3", new(int)).
@@ -194,7 +194,7 @@ func TestDB_BatchInsert(t *testing.T) {
 				s.ExpectExec(".*").WillReturnError(errors.New("query error"))
 			},
 			send: []interface{}{
-				drow.New().
+				*drow.New().
 					SetOrAdd("field1", 1).
 					SetOrAdd("field2", 2),
 			},
