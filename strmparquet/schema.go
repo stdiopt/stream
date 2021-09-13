@@ -11,7 +11,7 @@ import (
 
 var timeTyp = reflect.TypeOf(time.Time{})
 
-func schemaFrom(v interface{}) *parquetschema.SchemaDefinition {
+func schemaFromStruct(v interface{}) *parquetschema.SchemaDefinition {
 	val := reflect.Indirect(reflect.ValueOf(v))
 	typ := val.Type()
 

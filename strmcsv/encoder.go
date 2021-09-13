@@ -5,37 +5,36 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 
 	strm "github.com/stdiopt/stream"
+	"github.com/stdiopt/stream/drow"
 	"github.com/stdiopt/stream/strmio"
-	"github.com/stdiopt/stream/strmrefl"
 )
 
 // Encode receives a []string and encodes into []bytes writing the hdr first if any.
+// Accepts input
+// - []string
+// - []interface{}
+// - drow.Drow
+// - struct?
 func Encode(comma rune, opts ...encoderOpt) strm.Pipe {
 	return strm.Func(func(p strm.Proc) (err error) {
 		enc := newEncoder(strmio.AsWriter(p), comma, opts...)
 		defer func() {
-			closeErr := enc.Close()
+			closeErr := enc.close()
 			if err == nil {
 				err = closeErr
 			}
 		}()
-		return p.Consume(enc.Write)
+		return p.Consume(enc.write)
 	})
 }
 
-type column struct {
-	hdr string
-	fn  func(interface{}) (interface{}, error)
-}
-
 type encoder struct {
-	cw         *csv.Writer
-	comma      rune
-	columns    []column
-	headerSent bool
+	cw    *csv.Writer
+	comma rune
+
+	typeChecked bool
 }
 
 type encoderOpt = func(*encoder)
@@ -53,96 +52,47 @@ func newEncoder(w io.Writer, comma rune, opts ...encoderOpt) *encoder {
 	return enc
 }
 
-func (e *encoder) Close() error {
+func (e *encoder) close() error {
 	e.cw.Flush()
 	return e.cw.Error()
 }
 
-func (e *encoder) autoColumns(v interface{}) {
-	if _, ok := v.([]string); ok {
-		return
+func (e *encoder) initWriter(v interface{}) error {
+	if v == nil {
+		return errors.New("cannot encode nil value")
 	}
-	typ := reflect.TypeOf(v)
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-	if typ.Kind() != reflect.Struct {
-		return
-	}
-	for i := 0; i < typ.NumField(); i++ {
-		ftyp := typ.Field(i)
-		if !ftyp.IsExported() {
-			continue
+	switch v := v.(type) {
+	case []string:
+		return nil
+	case drow.Row:
+		hdr := []string{}
+		for i := 0; i < v.NumField(); i++ {
+			h := v.Header(i)
+			hdr = append(hdr, h.Name)
 		}
-		name := ftyp.Name
-		e.columns = append(e.columns, column{
-			hdr: name,
-			fn: func(v interface{}) (interface{}, error) {
-				f := strmrefl.FieldOf(v, name)
-				if f == nil {
-					return nil, errors.New("invalid field")
-				}
-				return f, nil
-			},
-		})
+		return e.cw.Write(hdr)
+	default:
+		return fmt.Errorf("type %T is not supported", v)
 	}
 }
 
-func (e *encoder) sendHeader(v interface{}) {
-	if len(e.columns) == 0 {
-		e.autoColumns(v)
-	}
-
-	hdr := []string{}
-	for _, c := range e.columns {
-		hdr = append(hdr, c.hdr)
-	}
-	if len(hdr) > 0 {
-		e.cw.Write(hdr) // nolint: errcheck
-	}
-	e.headerSent = true
-}
-
-func (e *encoder) Write(v interface{}) error {
-	if !e.headerSent {
-		e.sendHeader(v)
-	}
-	if len(e.columns) == 0 {
-		row, ok := v.([]string)
-		if !ok {
-			return fmt.Errorf(
-				"invalid input type, requires []string when no columns defined",
-			)
-		}
-		return e.cw.Write(row)
-	}
-	row := make([]string, len(e.columns))
-	for i, c := range e.columns {
-		raw, err := c.fn(v)
-		if err != nil {
+func (e *encoder) write(v interface{}) error {
+	if !e.typeChecked {
+		if err := e.initWriter(v); err != nil {
 			return err
 		}
-		row[i] = fmt.Sprint(raw)
+		e.typeChecked = true
 	}
-	e.cw.Write(row) // nolint: errcheck
+	switch v := v.(type) {
+	case []string:
+		e.cw.Write(v) // nolint: errcheck
+	case drow.Row:
+		row := make([]string, v.NumField())
+		for i := range row {
+			row[i] = fmt.Sprint(v.Value(i))
+		}
+		e.cw.Write(row) // nolint: errcheck
+	}
 
 	return e.cw.Error()
-}
-
-func Field(hdr string, f ...interface{}) encoderOpt {
-	if len(f) == 0 {
-		f = []interface{}{hdr}
-	}
-	return func(e *encoder) {
-		e.columns = append(e.columns, column{
-			hdr: hdr,
-			fn: func(v interface{}) (interface{}, error) {
-				val := strmrefl.FieldOf(v, f...)
-				if val == nil {
-					return nil, fmt.Errorf("field invalid: %v", f)
-				}
-				return val, nil
-			},
-		})
-	}
 }

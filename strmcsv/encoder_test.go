@@ -1,7 +1,6 @@
 package strmcsv
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stdiopt/stream/strmtest"
@@ -47,47 +46,6 @@ func TestEncode(t *testing.T) {
 				[]byte(
 					`one;two` + "\n" +
 						`three;four` + "\n",
-				),
-			},
-		},
-		{
-			name: "encodes struct into csv []byte",
-			args: args{
-				comma: ',',
-				encodeOpts: []encoderOpt{
-					Field("header 1", "Name"),
-					Field("header 2", "Value"),
-				},
-			},
-			send: []interface{}{
-				sample{"name 1", 7},
-				sample{"name 2", 77},
-			},
-			want: []interface{}{
-				[]byte(
-					`header 1,header 2` + "\n" +
-						`name 1,7` + "\n" +
-						`name 2,77` + "\n",
-				),
-			},
-		},
-		{
-			name: "encodes struct into csv []byte",
-			args: args{
-				comma: ',',
-				encodeOpts: []encoderOpt{
-					Field("Name"),
-				},
-			},
-			send: []interface{}{
-				sample{"name 1", 7},
-				sample{"name 2", 77},
-			},
-			want: []interface{}{
-				[]byte(
-					`Name` + "\n" +
-						`name 1` + "\n" +
-						`name 2` + "\n",
 				),
 			},
 		},
@@ -138,38 +96,6 @@ func TestEncode(t *testing.T) {
 				struct{ s string }{},
 			},
 			wantErr: "strmcsv.Encode.* invalid input type",
-		},
-		{
-			name: "returns error on invalid field",
-			args: args{
-				comma: ',',
-				encodeOpts: []encoderOpt{
-					Field("header 1", "Invalid"),
-				},
-			},
-			send: []interface{}{
-				sample{"name 1", 7},
-			},
-			want: []interface{}{
-				[]byte(`header 1` + "\n"),
-			},
-			wantErr: "strmcsv.Encode.* field invalid",
-		},
-		{
-			name: "errors when sender errors",
-			args: args{
-				comma: ',',
-				encodeOpts: []encoderOpt{
-					Field("header 1", "Name"),
-					Field("header 2", "Value"),
-				},
-			},
-			send: []interface{}{
-				sample{"name 1", 7},
-				sample{"name 2", 77},
-			},
-			senderError: errors.New("sender error"),
-			wantErr:     "strmcsv.Encode.* sender error",
 		},
 	}
 	for _, tt := range tests {
