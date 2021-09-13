@@ -15,12 +15,12 @@ type Row struct {
 	Values []interface{}
 }
 
-func New() *Row {
-	return &Row{header: NewHeader()}
+func New() Row {
+	return Row{header: NewHeader()}
 }
 
-func NewWithHeader(hdr *Header) *Row {
-	return &Row{
+func NewWithHeader(hdr *Header) Row {
+	return Row{
 		header: hdr,
 		Values: make([]interface{}, len(hdr.fields)),
 	}
@@ -98,7 +98,18 @@ func (r Row) Value(i int) interface{} {
 }
 
 // Do not allow adding a new header unless flagged to
-func (r *Row) Set(k string, v interface{}) *Row {
+func (r *Row) SetI(i int, v interface{}) {
+	if i < 0 || i > len(r.header.fields) {
+		panic(fmt.Sprintf("field %d doesn't exists", i))
+	}
+	if t := reflect.TypeOf(v); t != r.header.fields[i].Type {
+		panic(fmt.Sprintf("can't assign %v to %v", t, r.header.fields[i].Type))
+	}
+	r.Values[i] = v
+}
+
+// Do not allow adding a new header unless flagged to
+func (r *Row) Set(k string, v interface{}) {
 	i, ok := r.header.index[k]
 	if !ok {
 		panic(fmt.Sprintf("field %s doesn't exists", k))
@@ -107,10 +118,9 @@ func (r *Row) Set(k string, v interface{}) *Row {
 		panic(fmt.Sprintf("can't assign %v to %v", t, r.header.fields[i].Type))
 	}
 	r.Values[i] = v
-	return r
 }
 
-func (r *Row) SetOrAdd(k string, v interface{}) *Row {
+func (r *Row) SetOrAdd(k string, v interface{}) {
 	if r.header == nil {
 		r.header = NewHeader()
 	}
@@ -131,7 +141,6 @@ func (r *Row) SetOrAdd(k string, v interface{}) *Row {
 		r.Values = n
 	}
 	r.Values[i] = v
-	return r
 }
 
 func (r Row) String() string {

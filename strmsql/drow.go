@@ -42,5 +42,5 @@ func drowScan(hdr *drow.Header, rows *sql.Rows) (drow.Row, error) {
 	for i, v := range vals {
 		row.Values[i] = v.Elem().Interface()
 	}
-	return *row, nil
+	return row, nil
 }

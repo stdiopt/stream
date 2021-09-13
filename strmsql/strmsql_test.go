@@ -70,14 +70,20 @@ func TestDB_BatchInsert(t *testing.T) {
 					WillReturnResult(driver.ResultNoRows)
 			},
 			send: []interface{}{
-				*drow.New().
-					SetOrAdd("field1", 1).
-					SetOrAdd("field2", 2),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 1)
+					row.SetOrAdd("field2", 2)
+					return row
+				}(),
 			},
 			want: []interface{}{
-				*drow.New().
-					SetOrAdd("field1", 1).
-					SetOrAdd("field2", 2),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 1)
+					row.SetOrAdd("field2", 2)
+					return row
+				}(),
 			},
 		},
 		{
@@ -95,20 +101,32 @@ func TestDB_BatchInsert(t *testing.T) {
 					WillReturnResult(driver.ResultNoRows)
 			},
 			send: []interface{}{
-				*drow.New().
-					SetOrAdd("field1", 1).
-					SetOrAdd("field2", 2),
-				*drow.New().
-					SetOrAdd("field1", 3).
-					SetOrAdd("field2", 4),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 1)
+					row.SetOrAdd("field2", 2)
+					return row
+				}(),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 3)
+					row.SetOrAdd("field2", 4)
+					return row
+				}(),
 			},
 			want: []interface{}{
-				*drow.New().
-					SetOrAdd("field1", 1).
-					SetOrAdd("field2", 2),
-				*drow.New().
-					SetOrAdd("field1", 3).
-					SetOrAdd("field2", 4),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 1)
+					row.SetOrAdd("field2", 2)
+					return row
+				}(),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 3)
+					row.SetOrAdd("field2", 4)
+					return row
+				}(),
 			},
 		},
 		{
@@ -132,36 +150,48 @@ func TestDB_BatchInsert(t *testing.T) {
 					WillReturnResult(driver.ResultNoRows)
 			},
 			send: []interface{}{
-				*drow.New().
-					SetOrAdd("field1", 1).
-					SetOrAdd("field2", 2).
-					SetOrAdd("field3", new(int)).
-					SetOrAdd("field4", uint(4)).
-					SetOrAdd("field5", "5").
-					SetOrAdd("field6", now),
-				*drow.New().
-					SetOrAdd("field1", 7).
-					SetOrAdd("field2", 8).
-					SetOrAdd("field3", new(int)).
-					SetOrAdd("field4", uint(10)).
-					SetOrAdd("field5", "11").
-					SetOrAdd("field6", now),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 1)
+					row.SetOrAdd("field2", 2)
+					row.SetOrAdd("field3", new(int))
+					row.SetOrAdd("field4", uint(4))
+					row.SetOrAdd("field5", "5")
+					row.SetOrAdd("field6", now)
+					return row
+				}(),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 7)
+					row.SetOrAdd("field2", 8)
+					row.SetOrAdd("field3", new(int))
+					row.SetOrAdd("field4", uint(10))
+					row.SetOrAdd("field5", "11")
+					row.SetOrAdd("field6", now)
+					return row
+				}(),
 			},
 			want: []interface{}{
-				*drow.New().
-					SetOrAdd("field1", 1).
-					SetOrAdd("field2", 2).
-					SetOrAdd("field3", new(int)).
-					SetOrAdd("field4", uint(4)).
-					SetOrAdd("field5", "5").
-					SetOrAdd("field6", now),
-				*drow.New().
-					SetOrAdd("field1", 7).
-					SetOrAdd("field2", 8).
-					SetOrAdd("field3", new(int)).
-					SetOrAdd("field4", uint(10)).
-					SetOrAdd("field5", "11").
-					SetOrAdd("field6", now),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 1)
+					row.SetOrAdd("field2", 2)
+					row.SetOrAdd("field3", new(int))
+					row.SetOrAdd("field4", uint(4))
+					row.SetOrAdd("field5", "5")
+					row.SetOrAdd("field6", now)
+					return row
+				}(),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 7)
+					row.SetOrAdd("field2", 8)
+					row.SetOrAdd("field3", new(int))
+					row.SetOrAdd("field4", uint(10))
+					row.SetOrAdd("field5", "11")
+					row.SetOrAdd("field6", now)
+					return row
+				}(),
 			},
 		},
 		{
@@ -194,9 +224,12 @@ func TestDB_BatchInsert(t *testing.T) {
 				s.ExpectExec(".*").WillReturnError(errors.New("query error"))
 			},
 			send: []interface{}{
-				*drow.New().
-					SetOrAdd("field1", 1).
-					SetOrAdd("field2", 2),
+				func() drow.Row {
+					row := drow.New()
+					row.SetOrAdd("field1", 1)
+					row.SetOrAdd("field2", 2)
+					return row
+				}(),
 			},
 			wantErr: "strmsql.* query error",
 		},

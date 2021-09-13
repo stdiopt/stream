@@ -56,11 +56,14 @@ func TestUnmarshal(t *testing.T) {
 		{
 			name: "unmarshal a struct",
 			args: args{
-				r: *New().
-					SetOrAdd("ID", 7).
-					SetOrAdd("Name", "name").
-					SetOrAdd("Data", "some string").
-					SetOrAdd("CreatedAt", now),
+				r: func() Row {
+					row := New()
+					row.SetOrAdd("ID", 7)
+					row.SetOrAdd("Name", "name")
+					row.SetOrAdd("Data", "some string")
+					row.SetOrAdd("CreatedAt", now)
+					return row
+				}(),
 				v: &sample{},
 			},
 			want: &sample{
@@ -73,10 +76,13 @@ func TestUnmarshal(t *testing.T) {
 		{
 			name: "unmarshal a struct with tagname",
 			args: args{
-				r: *New().
-					SetOrAdd("id", 7).
-					SetOrAdd("name", "name").
-					SetOrAdd("no", "ok"),
+				r: func() Row {
+					row := New()
+					row.SetOrAdd("id", 7)
+					row.SetOrAdd("name", "name")
+					row.SetOrAdd("no", "ok")
+					return row
+				}(),
 				v: &sampleJSON{},
 				opts: []UnmarshalOpt{
 					UnmarshalOption.WithTag("json"),
@@ -90,9 +96,12 @@ func TestUnmarshal(t *testing.T) {
 		{
 			name: "unmarshal a struct with unexported",
 			args: args{
-				r: *New().
-					SetOrAdd("id", 7).
-					SetOrAdd("name", "sqlname"),
+				r: func() Row {
+					row := New()
+					row.SetOrAdd("id", 7)
+					row.SetOrAdd("name", "sqlname")
+					return row
+				}(),
 				v: &sampleUnexported{},
 				opts: []UnmarshalOpt{
 					UnmarshalOption.WithTag("sql"),
@@ -105,7 +114,11 @@ func TestUnmarshal(t *testing.T) {
 		{
 			name: "unmarshal an unmarshaller",
 			args: args{
-				r: *New().SetOrAdd("id", 7),
+				r: func() Row {
+					row := New()
+					row.SetOrAdd("id", 7)
+					return row
+				}(),
 				v: &sampleUnmarshaler{},
 			},
 			want: &sampleUnmarshaler{
@@ -115,7 +128,11 @@ func TestUnmarshal(t *testing.T) {
 		{
 			name: "errors if type is not convertible",
 			args: args{
-				r: *New().SetOrAdd("Unconvert", 7),
+				r: func() Row {
+					row := New()
+					row.SetOrAdd("Unconvert", 7)
+					return row
+				}(),
 				v: &sample{},
 			},
 			want:    &sample{},
@@ -124,7 +141,11 @@ func TestUnmarshal(t *testing.T) {
 		{
 			name: "panics if param is not pointer",
 			args: args{
-				r: *New().SetOrAdd("id", 7),
+				r: func() Row {
+					row := New()
+					row.SetOrAdd("id", 7)
+					return row
+				}(),
 				v: sample{},
 			},
 			wantPanic: "param should be a pointer to struct",
@@ -132,7 +153,11 @@ func TestUnmarshal(t *testing.T) {
 		{
 			name: "panics if param is not pointer struct",
 			args: args{
-				r: *New().SetOrAdd("id", 7),
+				r: func() Row {
+					row := New()
+					row.SetOrAdd("id", 7)
+					return row
+				}(),
 				v: new(int),
 			},
 			wantPanic: "param should be a pointer to struct",
