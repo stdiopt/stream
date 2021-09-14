@@ -8,18 +8,6 @@ import (
 	"github.com/stdiopt/stream/drow"
 )
 
-/*type FieldFunc = func(interface{}) (interface{}, error)
-
-func Field(f ...interface{}) FieldFunc {
-	return func(v interface{}) (interface{}, error) {
-		val := strmrefl.FieldOf(v, f...)
-		if val == nil {
-			return nil, fmt.Errorf("invalid field: %v", f)
-		}
-		return val, nil
-	}
-}*/
-
 type AggEl struct {
 	Field string
 	Value interface{}
