@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/stdiopt/stream/strmtest"
+	"github.com/stdiopt/stream/utils/strmtest"
 )
 
 type sample struct {

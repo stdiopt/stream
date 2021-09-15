@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 
 	"github.com/stdiopt/stream"
-	"github.com/stdiopt/stream/strmhttp"
-	"github.com/stdiopt/stream/strmio"
-	"github.com/stdiopt/stream/strmjson"
-	"github.com/stdiopt/stream/strmrefl"
-	"github.com/stdiopt/stream/strmutil"
+	"github.com/stdiopt/stream/format/strmjson"
+	"github.com/stdiopt/stream/transport/strmhttp"
+	"github.com/stdiopt/stream/utils/strmio"
+	"github.com/stdiopt/stream/utils/strmrefl"
+	"github.com/stdiopt/stream/utils/strmutil"
 )
 
 var ctxKey string = "k"
