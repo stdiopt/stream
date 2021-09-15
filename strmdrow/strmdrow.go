@@ -67,25 +67,3 @@ func Unmarshal(sample interface{}, opts ...drow.UnmarshalOpt) strm.Pipe {
 		})
 	})
 }
-
-// How slow is what?, slow, no point doing it honestly
-func AsStruct() strm.Pipe {
-	return strm.Func(func(p strm.Proc) error {
-		var typ reflect.Type
-		return p.Consume(func(row drow.Row) error {
-			if typ == nil {
-				ntyp, err := drow.StructType(row)
-				if err != nil {
-					return err
-				}
-				typ = ntyp
-			}
-
-			val := reflect.New(typ).Elem()
-			for i, v := range row.Values {
-				val.Field(i).Set(reflect.ValueOf(v))
-			}
-			return p.Send(val.Interface())
-		})
-	})
-}

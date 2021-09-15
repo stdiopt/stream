@@ -16,8 +16,6 @@ func F(f ...interface{}) Fields {
 type FMap map[string]Fields
 
 // Extract extracts A field from a struct and sends it forward
-// on a map it will walk through map
-// on a slice it's possible to have Field1.0.Field2
 func Extract(f ...interface{}) strm.Pipe {
 	return strm.S(func(s strm.Sender, v interface{}) error {
 		val := FieldOf(v, f...)

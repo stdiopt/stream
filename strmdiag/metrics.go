@@ -17,51 +17,28 @@ type Metrics struct {
 	set        map[string]*collector
 	writer     io.Writer
 	duration   time.Duration
-	start      time.Time
-	stop       chan struct{}
-	done       chan struct{}
+
+	start     time.Time
+	lastCheck time.Time
 }
 
 func NewMetrics(w io.Writer, d time.Duration) *Metrics {
 	m := &Metrics{
 		writer:   w,
 		duration: d,
+		start:    time.Now(),
 	}
-	m.Start()
 	return m
 }
 
-func (m *Metrics) Start() {
-	if m.stop != nil {
-		return
-	}
-	m.start = time.Now()
-
-	m.stop = make(chan struct{})
-	m.done = make(chan struct{})
-	lastCheck := time.Now()
-	go func() {
-		ticker := time.NewTicker(m.duration)
-		defer func() {
-			ticker.Stop()
-			m.tick(time.Since(lastCheck))
-			close(m.done)
-		}()
-		for {
-			select {
-			case <-m.stop:
-				return
-			case <-ticker.C:
-				m.tick(time.Since(lastCheck))
-				lastCheck = time.Now()
-			}
-		}
-	}()
-}
-
-func (m *Metrics) tick(dur time.Duration) {
+func (m *Metrics) tick() {
 	m.Lock()
 	defer m.Unlock()
+	dur := time.Since(m.lastCheck)
+	if dur < m.duration {
+		return
+	}
+	m.lastCheck = time.Now()
 
 	if len(m.collectors) == 0 {
 		return
@@ -76,10 +53,7 @@ func (m *Metrics) tick(dur time.Duration) {
 	fmt.Fprint(m.writer, buf.String())
 }
 
-func (m *Metrics) Stop() {
-	close(m.stop)
-	<-m.done
-
+func (m *Metrics) Done() {
 	m.Lock()
 	defer m.Unlock()
 	m.collectors = nil
@@ -96,7 +70,11 @@ func (m *Metrics) collector(name, desc string, opts ...MetricOpt) *collector {
 	}
 	c, ok := m.set[name]
 	if !ok {
-		c = &collector{name: name, desc: desc}
+		c = &collector{
+			metrics: m,
+			name:    name,
+			desc:    desc,
+		}
 		m.collectors = append(m.collectors, c)
 		m.set[name] = c
 	}
@@ -128,6 +106,7 @@ func (m *Metrics) CountBytes(name string, opts ...MetricOpt) strm.Pipe {
 }
 
 type collector struct {
+	metrics   *Metrics
 	name      string
 	desc      string
 	lastCount uint64
@@ -163,6 +142,7 @@ func (c *collector) Get(dur time.Duration) string {
 
 func (c *collector) Add(n int) {
 	atomic.AddUint64(&c.count, uint64(n))
+	c.metrics.tick()
 }
 
 type MetricOpt func(c *collector)
