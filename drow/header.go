@@ -27,10 +27,6 @@ func NewHeader(fields ...Field) *Header {
 	return hdr
 }
 
-func (h *Header) Fields() []Field {
-	return h.fields
-}
-
 func (h *Header) Add(f Field) int {
 	if h.index == nil {
 		h.index = map[string]int{}
@@ -44,6 +40,10 @@ func (h *Header) Add(f Field) int {
 	i := len(h.fields) - 1
 	h.index[f.Name] = i
 	return i
+}
+
+func (h *Header) Fields() []Field {
+	return h.fields
 }
 
 func (h *Header) Len() int {

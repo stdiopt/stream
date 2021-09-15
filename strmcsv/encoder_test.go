@@ -13,8 +13,7 @@ func TestEncode(t *testing.T) {
 	}
 
 	type args struct {
-		comma      rune
-		encodeOpts []encoderOpt
+		comma rune
 	}
 	tests := []struct {
 		name        string
@@ -100,7 +99,7 @@ func TestEncode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pp := Encode(tt.args.comma, tt.args.encodeOpts...)
+			pp := Encode(tt.args.comma)
 			if pp == nil {
 				t.Errorf("Encode() is nil = %v, want %v", pp == nil, false)
 			}

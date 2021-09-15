@@ -17,7 +17,7 @@ import (
 // - []interface{}
 // - drow.Drow
 // - struct?
-func Encode(comma rune, opts ...encoderOpt) strm.Pipe {
+func Encode(comma rune) strm.Pipe {
 	return strm.Func(func(p strm.Proc) (err error) {
 		enc := newEncoder(strmio.AsWriter(p), comma, opts...)
 		defer func() {
@@ -37,9 +37,7 @@ type encoder struct {
 	typeChecked bool
 }
 
-type encoderOpt = func(*encoder)
-
-func newEncoder(w io.Writer, comma rune, opts ...encoderOpt) *encoder {
+func newEncoder(w io.Writer, comma rune) *encoder {
 	cw := csv.NewWriter(w)
 	cw.Comma = comma
 	enc := &encoder{

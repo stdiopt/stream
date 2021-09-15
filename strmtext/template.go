@@ -1,4 +1,4 @@
-package strmtmpl
+package strmtext
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 
 type OptionFunc func(t *template.Template) *template.Template
 
-func WithFuncs(fm template.FuncMap) OptionFunc {
+func WithTemplateFuncs(fm template.FuncMap) OptionFunc {
 	return func(t *template.Template) *template.Template {
 		return t.Funcs(fm)
 	}
