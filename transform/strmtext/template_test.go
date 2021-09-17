@@ -103,7 +103,7 @@ func TestTemplate(t *testing.T) {
 			name:    "returns error on missing field",
 			args:    args{s: "{{.Missing.key}}"},
 			send:    []interface{}{sample{}},
-			wantErr: "strmtmpl.Template.* can't evaluate field Missing in type strmtmpl.sample",
+			wantErr: "strmtext.Template.* can't evaluate field Missing in type strmtext.sample",
 		},
 		{
 			name:      "panics error on malformed template",
@@ -116,7 +116,7 @@ func TestTemplate(t *testing.T) {
 			args:        args{s: ""},
 			send:        []interface{}{1, 2, 3},
 			senderError: errors.New("sender error"),
-			wantErr:     "strmtmpl.Template.* sender error$",
+			wantErr:     "strmtext.Template.* sender error$",
 		},
 	}
 	for _, tt := range tests {

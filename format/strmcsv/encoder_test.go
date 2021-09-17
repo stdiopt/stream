@@ -7,11 +7,6 @@ import (
 )
 
 func TestEncode(t *testing.T) {
-	type sample struct {
-		Name  string `json:"name"`
-		Value int    `json:"value"`
-	}
-
 	type args struct {
 		comma rune
 	}
@@ -49,42 +44,12 @@ func TestEncode(t *testing.T) {
 			},
 		},
 		{
-			name: "encodes all struct fields when no col mapping",
-			args: args{
-				comma: ',',
-			},
-			send: []interface{}{
-				sample{"name 1", 7},
-			},
-			want: []interface{}{
-				[]byte(
-					`Name,Value` + "\n" +
-						`name 1,7` + "\n",
-				),
-			},
-		},
-		{
-			name: "encodes all ptr struct fields when no col mapping",
-			args: args{
-				comma: ',',
-			},
-			send: []interface{}{
-				&sample{"name 1", 7},
-			},
-			want: []interface{}{
-				[]byte(
-					`Name,Value` + "\n" +
-						`name 1,7` + "\n",
-				),
-			},
-		},
-		{
 			name: "returns error when no columns are defined and it's not struct",
 			args: args{
 				comma: ',',
 			},
 			send:    []interface{}{1},
-			wantErr: "strmcsv.Encode.* invalid input type",
+			wantErr: "strmcsv.Encode.* type int is not supported",
 		},
 		{
 			name: "returns error when no columns are defined, and there is no exported fields",
@@ -94,7 +59,7 @@ func TestEncode(t *testing.T) {
 			send: []interface{}{
 				struct{ s string }{},
 			},
-			wantErr: "strmcsv.Encode.* invalid input type",
+			wantErr: "strmcsv.Encode.* type struct \\{ s string \\} is not supported",
 		},
 	}
 	for _, tt := range tests {
