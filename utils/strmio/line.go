@@ -7,6 +7,7 @@ import (
 	strm "github.com/stdiopt/stream"
 )
 
+// ScanLine receives []byte and scan for line, sends a line as []byte
 func ScanLine() strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		r := AsReader(p)

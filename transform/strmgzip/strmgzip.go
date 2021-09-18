@@ -40,8 +40,6 @@ func Unzip() strm.Pipe {
 		}
 
 		wr := strmio.AsWriter(p)
-		// TODO: verify if we really need the loop, since we will receive until EOF regardless the underlying data?
-		// for {
 		_, err = io.Copy(wr, gr)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return nil
@@ -49,7 +47,6 @@ func Unzip() strm.Pipe {
 		if err != nil {
 			return err
 		}
-		//}
 		return nil
 	})
 }

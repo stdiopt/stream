@@ -109,3 +109,15 @@ func (fn batchInsertOpt) WithSize(n int) batchInsertOpt {
 func (fn batchInsertOpt) WithAutoDDL(t string) batchInsertOpt {
 	return func(o *batchInsert) { fn(o); o.autoDDL = t }
 }
+
+func WithBatchSize(n int) batchInsertOpt {
+	return func(o *batchInsert) {
+		o.batchSize = n
+	}
+}
+
+func WithBatchAutoDDL(t string) batchInsertOpt {
+	return func(o *batchInsert) {
+		o.autoDDL = t
+	}
+}

@@ -57,7 +57,7 @@ func NormalizeColumns(opts ...drow.NormalizeOpt) strm.Pipe {
 
 func Unmarshal(sample interface{}, opts ...drow.UnmarshalOpt) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
-		typ := reflect.TypeOf(sample)
+		typ := reflect.Indirect(reflect.ValueOf(sample)).Type()
 		return p.Consume(func(row drow.Row) error {
 			val := reflect.New(typ)
 			if err := drow.Unmarshal(row, val.Interface(), opts...); err != nil {

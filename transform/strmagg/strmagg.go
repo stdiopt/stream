@@ -152,7 +152,7 @@ func makeGroupFunc(fn interface{}) func(interface{}) (interface{}, error) {
 		panic("group func requires 1 input")
 	}
 	if typ.NumOut() < 1 || typ.NumOut() > 2 {
-		panic("group func requires 2 output")
+		panic("group func requires at least 1 output")
 	}
 	return func(v interface{}) (interface{}, error) {
 		arg := reflect.ValueOf(v)

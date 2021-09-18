@@ -89,11 +89,8 @@ func (e *encoder) write(v interface{}) error {
 	}
 }
 
-var EncoderOption = encoderOpt(func(*encoder) {})
-
-func (fn encoderOpt) WithRowGroupSize(n int64) encoderOpt {
+func WithEncodeRowGroupSize(n int64) encoderOpt {
 	return func(e *encoder) {
-		fn(e)
 		e.rowGroupSize = n
 	}
 }
