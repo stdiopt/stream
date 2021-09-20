@@ -332,7 +332,6 @@ func TestDB_BatchInsert(t *testing.T) {
 
 func TestDB_Exec(t *testing.T) {
 	type fields struct {
-		db      *sql.DB
 		dialect Dialecter
 	}
 	type args struct {

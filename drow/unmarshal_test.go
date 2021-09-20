@@ -23,6 +23,7 @@ type sampleJSON struct {
 	No   string
 }
 
+// nolint: structcheck,unused
 type sampleUnexported struct {
 	id   int
 	Name string `sql:"name"`
