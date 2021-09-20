@@ -8,7 +8,7 @@ import (
 	"github.com/stdiopt/stream/drow"
 )
 
-type AggEl struct {
+type aggEl struct {
 	Field string
 	Value interface{}
 }
@@ -17,7 +17,7 @@ type Group struct {
 	Field string      `json:"field"`
 	Value interface{} `json:"value"`
 	Count int         `json:"count"`
-	Aggs  []*AggEl    `json:"aggs,omitempty"`
+	Aggs  []*aggEl    `json:"aggs,omitempty"`
 }
 
 type aggOptField struct {
@@ -31,11 +31,11 @@ type aggOptions struct {
 	aggs    []aggOptField
 }
 
-type AggOptFunc func(a *aggOptions)
+type aggOptFunc func(a *aggOptions)
 
 type aggAll struct{}
 
-func Aggregate(opt ...AggOptFunc) strm.Pipe {
+func Aggregate(opt ...aggOptFunc) strm.Pipe {
 	o := aggOptions{}
 	for _, fn := range opt {
 		fn(&o)
@@ -60,7 +60,7 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 				g = &Group{
 					Field: o.name,
 					Value: key,
-					Aggs:  make([]*AggEl, len(o.aggs)),
+					Aggs:  make([]*aggEl, len(o.aggs)),
 				}
 				groupRef[key] = g
 				group = append(group, g)
@@ -69,7 +69,7 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 			for i, a := range o.aggs {
 				ar := g.Aggs[i]
 				if ar == nil {
-					ar = &AggEl{
+					ar = &aggEl{
 						Field: a.Name,
 						Value: nil,
 					}
@@ -101,7 +101,8 @@ func Aggregate(opt ...AggOptFunc) strm.Pipe {
 	})
 }
 
-func GroupBy(name string, ifn interface{}) AggOptFunc {
+// GroupBy groups the input in a map using the function
+func GroupBy(name string, ifn interface{}) aggOptFunc {
 	fn := makeGroupFunc(ifn)
 	return func(a *aggOptions) {
 		a.name = name
@@ -109,7 +110,8 @@ func GroupBy(name string, ifn interface{}) AggOptFunc {
 	}
 }
 
-func Reduce(name string, ifn interface{}) AggOptFunc {
+// Reduce performs a reduce function on the group
+func Reduce(name string, ifn interface{}) aggOptFunc {
 	fn := makeReduceFunc(ifn)
 	return func(a *aggOptions) {
 		a.aggs = append(a.aggs, aggOptField{name, fn})

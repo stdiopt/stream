@@ -85,6 +85,11 @@ func (r Row) GetInt(k string) int {
 	return i
 }
 
+func (r Row) GetFloat64(k string) float64 {
+	f, _ := r.Get(k).(float64)
+	return f
+}
+
 func (r Row) GetString(k string) string {
 	i, _ := r.Get(k).(string)
 	return i
