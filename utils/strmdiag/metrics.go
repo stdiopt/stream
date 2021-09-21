@@ -85,9 +85,8 @@ func (m *Metrics) collector(name, desc string, opts ...MetricOpt) *collector {
 }
 
 func (m *Metrics) Count(name string, opts ...MetricOpt) strm.Pipe {
-	c := m.collector(name, "messages processed", opts...)
 	return strm.Func(func(p strm.Proc) error {
-		// defer c.Close()
+		c := m.collector(name, "messages processed", opts...)
 		return p.Consume(func(v interface{}) error {
 			c.Add(1)
 			return p.Send(v)

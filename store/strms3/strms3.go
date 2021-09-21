@@ -1,51 +1,113 @@
 package strms3
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/url"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/utils/strmio"
 )
 
-type s3uploader interface {
-	UploadWithContext(
-		ctx aws.Context,
-		input *s3manager.UploadInput,
-		opts ...func(*s3manager.Uploader),
-	) (*s3manager.UploadOutput, error)
-}
-
 // Upload uses s3manager from aws sdk and uploads into an s3 bucket
 // url format: (s3://{bucket}/{key/key})
 // https://pkg.go.dev/github.com/aws/aws-sdk-go@v1.40.30/service/s3/s3manager#NewUploader
-func Upload(upl s3uploader, s3url string) strm.Pipe {
+func Upload(svc s3iface.S3API, s3url string) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
+		bucket, key, err := s3urlParse(s3url)
+		if err != nil {
+			return err
+		}
+		upl := s3manager.NewUploaderWithClient(svc)
+
 		pr := strmio.AsReader(p)
 		defer pr.Close()
 		r := io.TeeReader(pr, strmio.AsWriter(p))
 
-		u, err := url.Parse(s3url)
+		uploadInput := &s3manager.UploadInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+			Body:   r,
+		}
+		_, err = upl.UploadWithContext(p.Context(), uploadInput)
+		return err
+	})
+}
+
+// Download receives a s3url as string and produces []byte
+func Download(svc s3iface.S3API) strm.Pipe {
+	return strm.Func(func(p strm.Proc) error {
+		dn := s3manager.NewDownloaderWithClient(svc)
+		return p.Consume(func(s3url string) error {
+			bucket, key, err := s3urlParse(s3url)
+			if err != nil {
+				return err
+			}
+
+			getObjectInput := &s3.GetObjectInput{
+				Bucket: aws.String(bucket),
+				Key:    aws.String(key),
+			}
+
+			buf := aws.WriteAtBuffer{}
+			if _, err := dn.Download(&buf, getObjectInput); err != nil {
+				return err
+			}
+
+			rd := bytes.NewReader(buf.Bytes())
+			wr := strmio.AsWriter(p)
+
+			_, err = io.Copy(wr, rd)
+			return err
+		})
+	})
+}
+
+// List receives a s3url as string and produces a string as s3urls
+func List(s3cli *s3.S3) strm.Pipe {
+	return strm.S(func(s strm.Sender, s3url string) error {
+		bucket, key, err := s3urlParse(s3url)
 		if err != nil {
 			return err
 		}
-		if u.Scheme != "s3" || u.Host == "" || u.Path == "" {
-			return fmt.Errorf("malformed url, should be in 's3://{bucket}/{key/key}' form")
+		var contToken *string
+		for {
+			res, err := s3cli.ListObjectsV2(&s3.ListObjectsV2Input{
+				Bucket:            aws.String(bucket),
+				Prefix:            aws.String(key),
+				ContinuationToken: contToken,
+			})
+			if err != nil {
+				return err
+			}
+			for _, r := range res.Contents {
+				objurl := fmt.Sprintf("s3://%s/%s", bucket, *r.Key)
+				if err := s.Send(objurl); err != nil {
+					return err
+				}
+			}
+			if res.ContinuationToken == nil {
+				break
+			}
+			contToken = res.ContinuationToken
 		}
-		path := strings.TrimPrefix(u.Path, "/")
-
-		_, err = upl.UploadWithContext(
-			p.Context(),
-			&s3manager.UploadInput{
-				Bucket: aws.String(u.Host),
-				Key:    aws.String(path),
-				Body:   r,
-			},
-		)
-		return err
+		return nil
 	})
+}
+
+func s3urlParse(s3url string) (bucket string, ket string, err error) {
+	u, err := url.Parse(s3url)
+	if err != nil {
+		return "", "", err
+	}
+	if u.Scheme != "s3" || u.Host == "" || u.Path == "" {
+		return "", "", fmt.Errorf("malformed url, should be in 's3://{bucket}/{key/...}' form")
+	}
+	return u.Host, strings.TrimPrefix(u.Path, "/"), nil
 }
