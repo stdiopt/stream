@@ -20,6 +20,7 @@ import (
 // https://pkg.go.dev/github.com/aws/aws-sdk-go@v1.40.30/service/s3/s3manager#NewUploader
 func Upload(svc s3iface.S3API, s3url string) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
+		ctx := p.Context()
 		bucket, key, err := s3urlParse(s3url)
 		if err != nil {
 			return err
@@ -35,7 +36,7 @@ func Upload(svc s3iface.S3API, s3url string) strm.Pipe {
 			Key:    aws.String(key),
 			Body:   r,
 		}
-		_, err = upl.UploadWithContext(p.Context(), uploadInput)
+		_, err = upl.UploadWithContext(ctx, uploadInput)
 		return err
 	})
 }
@@ -44,6 +45,7 @@ func Upload(svc s3iface.S3API, s3url string) strm.Pipe {
 func Download(svc s3iface.S3API) strm.Pipe {
 	return strm.Func(func(p strm.Proc) error {
 		dn := s3manager.NewDownloaderWithClient(svc)
+		ctx := p.Context()
 		return p.Consume(func(s3url string) error {
 			bucket, key, err := s3urlParse(s3url)
 			if err != nil {
@@ -56,7 +58,7 @@ func Download(svc s3iface.S3API) strm.Pipe {
 			}
 
 			buf := aws.WriteAtBuffer{}
-			if _, err := dn.Download(&buf, getObjectInput); err != nil {
+			if _, err := dn.DownloadWithContext(ctx, &buf, getObjectInput); err != nil {
 				return err
 			}
 
@@ -72,17 +74,19 @@ func Download(svc s3iface.S3API) strm.Pipe {
 // List receives a s3url as string and produces a string as s3urls
 func List(s3cli *s3.S3) strm.Pipe {
 	return strm.S(func(s strm.Sender, s3url string) error {
+		ctx := s.Context()
 		bucket, key, err := s3urlParse(s3url)
 		if err != nil {
 			return err
 		}
 		var contToken *string
 		for {
-			res, err := s3cli.ListObjectsV2(&s3.ListObjectsV2Input{
+			listObjects := &s3.ListObjectsV2Input{
 				Bucket:            aws.String(bucket),
 				Prefix:            aws.String(key),
 				ContinuationToken: contToken,
-			})
+			}
+			res, err := s3cli.ListObjectsV2WithContext(ctx, listObjects)
 			if err != nil {
 				return err
 			}
@@ -106,7 +110,7 @@ func s3urlParse(s3url string) (bucket string, ket string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	if u.Scheme != "s3" || u.Host == "" || u.Path == "" {
+	if u.Scheme != "s3" || u.Host == "" {
 		return "", "", fmt.Errorf("malformed url, should be in 's3://{bucket}/{key/...}' form")
 	}
 	return u.Host, strings.TrimPrefix(u.Path, "/"), nil
