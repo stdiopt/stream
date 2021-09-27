@@ -32,7 +32,7 @@ func (p pipe) Run(ctx context.Context, in consumer, out sender) error {
 		ctx:      ctx,
 		consumer: in,
 		sender:   out, // this could be created here and a sender returned?!
-		log:      log.New(log.Writer(), fmt.Sprintf("[%s] ", p.caller.name), log.Flags()),
+		log:      log.New(log.Writer(), fmt.Sprintf("[%s] ", p.caller.name), 0),
 	}
 	return p.fn(prc)
 }
@@ -106,7 +106,10 @@ func makeSProcFunc(fn interface{}) ProcFunc {
 				args[1] = reflect.ValueOf(v)
 			}
 			if args[1].Type() != fnTyp.In(1) {
-				return TypeMismatchError{fnTyp.In(1).String(), args[1].Type().String()}
+				if !args[1].CanConvert(fnTyp.In(1)) {
+					return NewTypeMismatchError(fnTyp.In(1), args[1].Type())
+				}
+				args[1] = args[1].Convert(fnTyp.In(1))
 			}
 
 			ret := fnVal.Call(args)

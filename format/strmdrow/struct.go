@@ -14,6 +14,12 @@ type fromStruct struct {
 
 type fromStructOpt func(*fromStruct)
 
+func WithFromStructTag(t string) fromStructOpt {
+	return func(o *fromStruct) {
+		o.tag = t
+	}
+}
+
 var FromStructOption = fromStructOpt(func(*fromStruct) {})
 
 func (fn fromStructOpt) SelectTag(t string) fromStructOpt {

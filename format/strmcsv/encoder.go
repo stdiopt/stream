@@ -83,7 +83,17 @@ func (e *encoder) write(v interface{}) error {
 	case drow.Row:
 		row := make([]string, v.NumField())
 		for i := range row {
-			row[i] = fmt.Sprint(v.Value(i))
+			/*vv := drow.String(v.Value(i))
+			if vv == nil {
+				row[i] = ""
+				continue
+			}
+			val := reflect.Indirect(reflect.ValueOf(vv))
+			if !val.IsValid() {
+				row[i] = ""
+				continue
+			}*/
+			row[i] = drow.String(v.Value(i))
 		}
 		e.cw.Write(row) // nolint: errcheck
 	}

@@ -3,11 +3,12 @@ package strmsql
 import (
 	"database/sql"
 	"reflect"
+	"time"
 
 	"github.com/stdiopt/stream/drow"
 )
 
-func drowHeader(row *sql.Rows) (*drow.Header, error) {
+func drowHeader(d Dialecter, row *sql.Rows) (*drow.Header, error) {
 	cols, err := row.Columns()
 	if err != nil {
 		return nil, err
@@ -21,7 +22,7 @@ func drowHeader(row *sql.Rows) (*drow.Header, error) {
 	for i, c := range cols {
 		fields = append(fields, drow.Field{
 			Name: c,
-			Type: typs[i].ScanType(),
+			Type: d.ColumnType(typs[i]),
 		})
 	}
 	return drow.NewHeader(fields...), nil
@@ -44,3 +45,16 @@ func drowScan(hdr *drow.Header, rows *sql.Rows) (drow.Row, error) {
 	}
 	return row, nil
 }
+
+var (
+	sqlNullBool   = reflect.TypeOf(sql.NullBool{})
+	sqlNullString = reflect.TypeOf(sql.NullString{})
+	sqlNullInt64  = reflect.TypeOf(sql.NullInt64{})
+	sqlNullTime   = reflect.TypeOf(sql.NullTime{})
+	sqlRawBytes   = reflect.TypeOf(sql.RawBytes{})
+
+	boolTyp   = reflect.TypeOf(bool(false))
+	int64Typ  = reflect.TypeOf(int64(0))
+	timeTyp   = reflect.TypeOf(time.Time{})
+	stringTyp = reflect.TypeOf("")
+)

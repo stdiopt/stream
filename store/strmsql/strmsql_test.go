@@ -36,7 +36,7 @@ func TestDB_BatchInsert(t *testing.T) {
 	}{
 		{
 			name:   "execute batch insert with []interface{}",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -57,7 +57,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "execute batch insert with drow.Row",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -88,7 +88,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "execute batch insert with multiple drow.Row",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -131,7 +131,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "generate DDL with multiple drow.Row",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -196,7 +196,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "errors with autoDDL for wrong type",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -212,7 +212,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "errors when ddl qry errors",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -235,7 +235,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "errors when insert qry errors",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -255,7 +255,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "errors when invalid type sent",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -269,7 +269,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "errors when invalid type sent",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{
@@ -287,7 +287,7 @@ func TestDB_BatchInsert(t *testing.T) {
 		},
 		{
 			name:   "errors when sender errors",
-			fields: fields{dialect: PSQL{}},
+			fields: fields{dialect: PSQL},
 			args: args{
 				qry: "insert into record values",
 				opts: []batchInsertOpt{

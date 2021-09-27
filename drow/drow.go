@@ -19,6 +19,25 @@ func New() Row {
 	return Row{header: NewHeader()}
 }
 
+// Merge merge two rows combining columns r2 will override r1 if column name is the same
+func Merge(r1, r2 Row) Row {
+	res := New()
+	for i := 0; i < r1.NumField(); i++ {
+		res.SetOrAdd(
+			r1.Header(i).Name,
+			r1.Values[i],
+		)
+	}
+
+	for i := 0; i < r2.NumField(); i++ {
+		res.SetOrAdd(
+			r2.Header(i).Name,
+			r2.Values[i],
+		)
+	}
+	return res
+}
+
 func NewWithHeader(hdr *Header) Row {
 	return Row{
 		header: hdr,
@@ -32,10 +51,16 @@ func (r Row) WithHeader(hdr *Header) Row {
 }
 
 func (r Row) NumField() int {
+	if r.header == nil {
+		return 0
+	}
 	return len(r.header.fields)
 }
 
 func (r Row) Header(i int) Field {
+	if r.header == nil {
+		return Field{}
+	}
 	if i < 0 || i >= len(r.header.fields) {
 		return Field{}
 	}
@@ -77,22 +102,27 @@ func (r Row) Meta(k string) *FieldValue {
 }
 
 func (r Row) Get(k string) interface{} {
-	return r.Value(r.header.index[k])
+	i, ok := r.header.index[k]
+	if !ok {
+		return nil
+	}
+	return r.Value(i)
 }
 
 func (r Row) GetInt(k string) int {
-	i, _ := r.Get(k).(int)
-	return i
+	return Int(r.Get(k))
+}
+
+func (r Row) GetInt64(k string) int64 {
+	return Int64(r.Get(k))
 }
 
 func (r Row) GetFloat64(k string) float64 {
-	f, _ := r.Get(k).(float64)
-	return f
+	return Float64(r.Get(k))
 }
 
 func (r Row) GetString(k string) string {
-	i, _ := r.Get(k).(string)
-	return i
+	return String(r.Get(k))
 }
 
 func (r Row) Value(i int) interface{} {
@@ -136,11 +166,12 @@ func (r *Row) SetOrAdd(k string, v interface{}) {
 			Type: reflect.TypeOf(v),
 		})
 	}
+	// update type
 	if t := reflect.TypeOf(v); t != r.header.fields[i].Type {
 		r.header.fields[i] = Field{Name: k, Type: reflect.TypeOf(v)}
 	}
-	// Bound check
-	if i <= len(r.Values) {
+	// Bound check and grow if needed
+	if i >= len(r.Values) {
 		n := make([]interface{}, i+1)
 		copy(n, r.Values)
 		r.Values = n
@@ -153,7 +184,11 @@ func (r Row) String() string {
 	buf.WriteString("{")
 	for i := 0; i < r.NumField(); i++ {
 		h := r.Header(i)
-		fmt.Fprintf(buf, "(%q:%v:%v) ", h.Name, h.Type, r.Value(i))
+		// fmt.Fprintf(buf, "(%q:%v:%v) ", h.Name, h.Type, r.Value(i))
+		fmt.Fprintf(buf, "%q:%v", h.Name, r.Value(i))
+		if i != r.NumField()-1 {
+			fmt.Fprintf(buf, ", ")
+		}
 	}
 	buf.WriteString("}")
 	return buf.String()

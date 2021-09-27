@@ -7,7 +7,7 @@ import (
 )
 
 func Unmarshal(r Row, v interface{}, opts ...UnmarshalOpt) error {
-	u := unmarshal{}
+	u := unmarshal{tag: "drow"}
 	for _, fn := range opts {
 		fn(&u)
 	}
@@ -54,11 +54,18 @@ func (u unmarshal) Unmarshal(row Row, v interface{}) error {
 		if f == nil {
 			continue
 		}
-		if !ftyp.Type.ConvertibleTo(f.Type) {
+		fval := reflect.ValueOf(f.Value)
+		if !f.Type.ConvertibleTo(ftyp.Type) {
+			if f.Type.Kind() != reflect.Ptr || !f.Type.Elem().ConvertibleTo(ftyp.Type) {
+				return fmt.Errorf("'%v' cannot be converted to '%v'", f.Type, ftyp.Type)
+			}
+			if fval.IsNil() {
+				continue
+			}
+			fval = fval.Elem()
 			// continue? // panic?
-			return fmt.Errorf("'%v' cannot be converted to '%v'", f.Type, ftyp.Type)
 		}
-		val.Field(i).Set(reflect.ValueOf(f.Value).Convert(ftyp.Type))
+		val.Field(i).Set(fval.Convert(ftyp.Type))
 
 	}
 	return nil
@@ -66,11 +73,8 @@ func (u unmarshal) Unmarshal(row Row, v interface{}) error {
 
 type UnmarshalOpt func(*unmarshal)
 
-var UnmarshalOption = UnmarshalOpt(func(*unmarshal) {})
-
-func (fn UnmarshalOpt) WithTag(t string) UnmarshalOpt {
+func WithUnmarshalTag(t string) UnmarshalOpt {
 	return func(u *unmarshal) {
-		fn(u)
 		u.tag = t
 	}
 }

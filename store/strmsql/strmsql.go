@@ -2,6 +2,7 @@ package strmsql
 
 import (
 	"database/sql"
+	"reflect"
 
 	strm "github.com/stdiopt/stream"
 	"github.com/stdiopt/stream/drow"
@@ -10,6 +11,7 @@ import (
 type Dialecter interface {
 	QryDDL(name string, row drow.Row) string
 	QryBatch(qry string, nparams, nrows int) string
+	ColumnType(t *sql.ColumnType) reflect.Type
 }
 
 type DB struct {
@@ -58,7 +60,7 @@ func (d *DB) Query(qry string) strm.Pipe {
 			}
 
 			if hdr == nil {
-				nhdr, err := drowHeader(rows)
+				nhdr, err := drowHeader(d.dialect, rows)
 				if err != nil {
 					return err
 				}

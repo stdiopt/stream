@@ -2,6 +2,7 @@ package strmsql
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"reflect"
 	"time"
@@ -9,9 +10,11 @@ import (
 	"github.com/stdiopt/stream/drow"
 )
 
-type PSQL struct{}
+var PSQL = pSQLDialect{}
 
-func (PSQL) QryDDL(name string, row drow.Row) string {
+type pSQLDialect struct{}
+
+func (pSQLDialect) QryDDL(name string, row drow.Row) string {
 	timeTyp := reflect.TypeOf(time.Time{})
 
 	qry := &bytes.Buffer{}
@@ -48,7 +51,7 @@ func (PSQL) QryDDL(name string, row drow.Row) string {
 	return qry.String()
 }
 
-func (PSQL) QryBatch(qry string, nparams int, nrows int) string {
+func (pSQLDialect) QryBatch(qry string, nparams int, nrows int) string {
 	qryBuf := &bytes.Buffer{}
 	qryBuf.WriteString(qry)
 	for i := 0; i < nparams*nrows; i++ {
@@ -65,4 +68,21 @@ func (PSQL) QryBatch(qry string, nparams int, nrows int) string {
 	}
 	qryBuf.WriteString(")")
 	return qryBuf.String()
+}
+
+func (pSQLDialect) ColumnType(ct *sql.ColumnType) reflect.Type {
+	t := ct.ScanType()
+	switch t {
+	case sqlNullBool:
+		return reflect.PtrTo(boolTyp)
+	case sqlNullString:
+		return reflect.PtrTo(stringTyp)
+	case sqlNullInt64:
+		return reflect.PtrTo(int64Typ)
+	case sqlNullTime:
+		return reflect.PtrTo(timeTyp)
+	case sqlRawBytes:
+		return reflect.PtrTo(stringTyp)
+	}
+	return t
 }

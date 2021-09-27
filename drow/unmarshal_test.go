@@ -34,7 +34,7 @@ type sampleUnmarshaler struct {
 }
 
 func (s *sampleUnmarshaler) UnmarshalDROW(row Row) error {
-	s.ID = row.GetInt("id")
+	s.ID = Int(row.Get("id"))
 	return nil
 }
 
@@ -86,7 +86,7 @@ func TestUnmarshal(t *testing.T) {
 				}(),
 				v: &sampleJSON{},
 				opts: []UnmarshalOpt{
-					UnmarshalOption.WithTag("json"),
+					WithUnmarshalTag("json"),
 				},
 			},
 			want: &sampleJSON{
@@ -105,7 +105,7 @@ func TestUnmarshal(t *testing.T) {
 				}(),
 				v: &sampleUnexported{},
 				opts: []UnmarshalOpt{
-					UnmarshalOption.WithTag("sql"),
+					WithUnmarshalTag("sql"),
 				},
 			},
 			want: &sampleUnexported{

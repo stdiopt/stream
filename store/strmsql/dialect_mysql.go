@@ -2,16 +2,20 @@ package strmsql
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"reflect"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/stdiopt/stream/drow"
 )
 
-type MySQL struct{}
+var MySQL = mySQLDialect{}
 
-func (MySQL) QryDDL(name string, row drow.Row) string {
+type mySQLDialect struct{}
+
+func (mySQLDialect) QryDDL(name string, row drow.Row) string {
 	timeTyp := reflect.TypeOf(time.Time{})
 
 	qry := &bytes.Buffer{}
@@ -48,7 +52,7 @@ func (MySQL) QryDDL(name string, row drow.Row) string {
 	return qry.String()
 }
 
-func (MySQL) QryBatch(qry string, nparams int, nrows int) string {
+func (mySQLDialect) QryBatch(qry string, nparams int, nrows int) string {
 	qryBuf := &bytes.Buffer{}
 	qryBuf.WriteString(qry)
 	for i := 0; i < nparams*nrows; i++ {
@@ -65,4 +69,23 @@ func (MySQL) QryBatch(qry string, nparams int, nrows int) string {
 	}
 	qryBuf.WriteString(")")
 	return qryBuf.String()
+}
+
+var mysqlNullTime = reflect.TypeOf(mysql.NullTime{})
+
+func (mySQLDialect) ColumnType(ct *sql.ColumnType) reflect.Type {
+	t := ct.ScanType()
+	switch t {
+	case sqlNullBool:
+		return reflect.PtrTo(boolTyp)
+	case sqlNullString:
+		return reflect.PtrTo(stringTyp)
+	case sqlNullInt64:
+		return reflect.PtrTo(int64Typ)
+	case sqlNullTime, mysqlNullTime:
+		return reflect.PtrTo(timeTyp)
+	case sqlRawBytes:
+		return reflect.PtrTo(stringTyp)
+	}
+	return t
 }

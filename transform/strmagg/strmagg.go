@@ -46,7 +46,7 @@ func Aggregate(opt ...aggOptFunc) strm.Pipe {
 		group := []*Group{}
 
 		err := p.Consume(func(v interface{}) error {
-			key := interface{}(aggAll{})
+			key := interface{}(aggAll{}) // defaults to aggAll
 			if o.groupBy != nil {
 				gkey, err := o.groupBy(v)
 				if err != nil {
@@ -83,14 +83,13 @@ func Aggregate(opt ...aggOptFunc) strm.Pipe {
 		if err != nil {
 			return err
 		}
-		rec := drow.New()
+
 		for _, g := range group {
+			rec := drow.New()
 			if o.groupBy != nil {
-				// rec.FieldByName(g.Field).Set(g.Value)
 				rec.SetOrAdd(g.Field, g.Value)
 			}
 			for _, a := range g.Aggs {
-				// rec.FieldByName(a.Field).Set(a.Value)
 				rec.SetOrAdd(a.Field, a.Value)
 			}
 			if err := p.Send(rec); err != nil {

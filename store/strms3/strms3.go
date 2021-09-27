@@ -72,7 +72,7 @@ func Download(svc s3iface.S3API) strm.Pipe {
 }
 
 // List receives a s3url as string and produces a string as s3urls
-func List(s3cli *s3.S3) strm.Pipe {
+func List(s3cli s3iface.S3API) strm.Pipe {
 	return strm.S(func(s strm.Sender, s3url string) error {
 		ctx := s.Context()
 		bucket, key, err := s3urlParse(s3url)
