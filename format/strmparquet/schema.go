@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	// This uses outdated thrift, xingtonsys might still be better?!
 	"github.com/fraugster/parquet-go/parquet"
 	"github.com/fraugster/parquet-go/parquetschema"
 )

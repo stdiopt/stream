@@ -52,9 +52,10 @@ func String(v interface{}) string {
 	case string:
 		return v
 	case *string:
-		if v != nil {
-			return *v
+		if v == nil {
+			return ""
 		}
+		return *v
 	}
 	return fmt.Sprint(v)
 }
