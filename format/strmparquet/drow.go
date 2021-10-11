@@ -53,9 +53,9 @@ func (m drowMarshaller) MarshalParquet(record interfaces.MarshalObject) error {
 			field.SetInt32(int32(val.Int()))
 		case reflect.Int64:
 			field.SetInt64(val.Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
 			field.SetInt32(int32(val.Uint()))
-		case reflect.Uint32, reflect.Uint64:
+		case reflect.Uint64:
 			field.SetInt64(int64(val.Uint()))
 		case reflect.Float32:
 			field.SetFloat32(float32(val.Float()))

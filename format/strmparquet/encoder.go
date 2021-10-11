@@ -52,6 +52,9 @@ func newEncoder(w io.Writer, opts ...encoderOpt) encoder {
 }
 
 func (e encoder) close() error {
+	if e.fw == nil {
+		return nil
+	}
 	return e.fw.Close()
 }
 

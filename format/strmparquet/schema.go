@@ -1,6 +1,7 @@
 package strmparquet
 
 import (
+	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -47,24 +48,46 @@ func columnDef(name string, typ reflect.Type) *parquetschema.ColumnDefinition {
 	var logTyp *parquet.LogicalType
 	rep := parquet.FieldRepetitionType_REQUIRED
 
+	if typ == nil {
+		log.Println("Type is nil,Column def wrong with column:", name)
+		panic("type is nil")
+	}
 	// vi := val.Field(i).Interface()
 	if typ.Kind() == reflect.Ptr {
 		rep = parquet.FieldRepetitionType_OPTIONAL
 		typ = typ.Elem()
 	}
 	switch typ.Kind() {
+	case reflect.Int8:
+		ptyp = parquet.Type_INT32
+		convTyp = pconvType(parquet.ConvertedType_INT_8)
+	case reflect.Uint8:
+		ptyp = parquet.Type_INT32
+		convTyp = pconvType(parquet.ConvertedType_UINT_8)
+	case reflect.Int16:
+		ptyp = parquet.Type_INT32
+		convTyp = pconvType(parquet.ConvertedType_INT_16)
+	case reflect.Uint16:
+		ptyp = parquet.Type_INT32
+		convTyp = pconvType(parquet.ConvertedType_UINT_16)
+
 	case reflect.Int, reflect.Int32:
 		ptyp = parquet.Type_INT32
+	case reflect.Uint, reflect.Uint32:
+		ptyp = parquet.Type_INT32
+		convTyp = pconvType(parquet.ConvertedType_UINT_32)
 	case reflect.Int64:
 		ptyp = parquet.Type_INT64
+	case reflect.Uint64:
+		ptyp = parquet.Type_INT64
+		convTyp = pconvType(parquet.ConvertedType_UINT_64)
 	case reflect.Float32:
 		ptyp = parquet.Type_FLOAT
 	case reflect.Float64:
 		ptyp = parquet.Type_DOUBLE
 	case reflect.String:
 		ptyp = parquet.Type_BYTE_ARRAY
-		convTyp = new(parquet.ConvertedType)
-		*convTyp = parquet.ConvertedType_UTF8
+		convTyp = pconvType(parquet.ConvertedType_UTF8)
 		logTyp = &parquet.LogicalType{
 			STRING: &parquet.StringType{},
 		}
@@ -103,4 +126,8 @@ func columnDef(name string, typ reflect.Type) *parquetschema.ColumnDefinition {
 			LogicalType:    logTyp,
 		},
 	}
+}
+
+func pconvType(c parquet.ConvertedType) *parquet.ConvertedType {
+	return &c
 }

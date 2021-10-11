@@ -161,6 +161,9 @@ func (r *Row) SetOrAdd(k string, v interface{}) {
 	}
 	i, ok := r.header.index[k]
 	if !ok {
+		if v == nil {
+			panic(fmt.Sprintf("Invalid value field: %s of nil", k))
+		}
 		i = r.header.Add(Field{
 			Name: k,
 			Type: reflect.TypeOf(v),
